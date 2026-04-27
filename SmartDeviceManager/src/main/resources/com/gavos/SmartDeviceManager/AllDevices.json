@@ -1,0 +1,14 @@
+{
+  "devices": [
+    {
+      "name": "gavpc",
+      "refName": "PC1",
+      "ip": "192.168.4.100"
+    },
+    {
+      "name": "bedroomlight",
+      "refName": "Main Bedroom Light",
+      "ip": "192.168.4.50"
+    }
+  ]
+}

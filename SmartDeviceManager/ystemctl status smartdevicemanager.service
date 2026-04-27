@@ -1,0 +1,20 @@
+[0;1;32m●[0m smartdevicemanager.service - SmartDeviceManager
+     Loaded: loaded (]8;;file://GavinPiOne/etc/systemd/system/smartdevicemanager.service\/etc/systemd/system/smartdevicemanager.service]8;;\; [0;1;32menabled[0m; preset: [0;1;32menabled[0m)
+     Active: [0;1;32mactive (running)[0m since Fri 2026-04-10 18:25:12 BST; 46s ago
+ Invocation: 09405219738a4f0f9ff71f822ad93b93
+   Main PID: 3432 (java)
+      Tasks: 38[0;38;5;245m (limit: 1576)[0m
+        CPU: 38.546s
+     CGroup: /system.slice/smartdevicemanager.service
+             └─[0;38;5;245m3432 /usr/bin/java -jar /home/gavinsco/MyAssistant/SmartDeviceManager/target/SmartDeviceManager-1.0.0.jar --server.port=9090[0m
+
+Apr 10 18:25:22 GavinPiOne java[3432]: 2026-04-10T18:25:22.874+01:00  INFO 3432 --- [SmartDeviceManager] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+Apr 10 18:25:22 GavinPiOne java[3432]: 2026-04-10T18:25:22.876+01:00  INFO 3432 --- [SmartDeviceManager] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.39]
+Apr 10 18:25:23 GavinPiOne java[3432]: 2026-04-10T18:25:23.041+01:00  INFO 3432 --- [SmartDeviceManager] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+Apr 10 18:25:23 GavinPiOne java[3432]: 2026-04-10T18:25:23.047+01:00  INFO 3432 --- [SmartDeviceManager] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 5355 ms
+Apr 10 18:25:25 GavinPiOne java[3432]: 2026-04-10T18:25:25.403+01:00  INFO 3432 --- [SmartDeviceManager] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 9090 (http) with context path '/'
+Apr 10 18:25:25 GavinPiOne java[3432]: 2026-04-10T18:25:25.456+01:00  INFO 3432 --- [SmartDeviceManager] [           main] c.g.S.SmartDeviceManager                 : Started SmartDeviceManager in 10.588 seconds (process running for 12.759)
+Apr 10 18:25:25 GavinPiOne java[3432]: SmartDeviceManager started. Commands: <name> <command> [values] — e.g. "bedroom on" or "bedroom rgb 255 100 50"
+Apr 10 18:25:25 GavinPiOne java[3432]: Also accepting POST /command with JSON: {"name":"bedroom","command":"on"}
+Apr 10 18:25:25 GavinPiOne java[3432]: Type 'exit' to quit.
+Apr 10 18:25:25 GavinPiOne java[3432]: > Shutting down.
