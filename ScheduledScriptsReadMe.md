@@ -23,17 +23,17 @@ Boot behaviour is controlled by systemd units in:
 Relevant units:
 
 ```text
-/etc/systemd/system/smartdevicemanager-prepare.service
+/etc/systemd/system/smartdevicemanager-CheckForUpdates.service
 /etc/systemd/system/smartdevicemanager.service
 ```
 
-`smartdevicemanager-prepare.service` is a one-shot boot preparation service. It runs:
+`smartdevicemanager-CheckForUpdates.service` is a one-shot boot update-check service. It runs:
 
 ```text
 /home/gavinsco/scripts/prepare-smartdevicemanager.sh
 ```
 
-The prepare script:
+The update-check script:
 
 1. Changes directory to `/home/gavinsco/apps`.
 2. Checks out branch `main`.
@@ -71,13 +71,7 @@ It reboots the device every day at midnight:
 0 0 * * * root /usr/sbin/reboot
 ```
 
-The user crontab should not run SmartDeviceManager update scripts. The old scheduled update script is:
-
-```text
-/home/gavinsco/scripts/update-smartdevicemanager.sh
-```
-
-It is kept on disk for reference, but it is not part of the active schedule.
+The user crontab should not run SmartDeviceManager update scripts. The old scheduled update script has been removed.
 
 ## In-App Scheduled Behaviour
 
