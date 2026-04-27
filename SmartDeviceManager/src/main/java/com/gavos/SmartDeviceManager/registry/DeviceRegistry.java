@@ -40,7 +40,7 @@ public class DeviceRegistry {
             for (DeviceEntry entry : data.devices) {
                 if (entry.refName != null && entry.name != null && entry.ip != null) {
                     InetAddress address = InetAddress.getByName(entry.ip);
-                    SmartDevice device = new SmartDevice(entry.refName, entry.name, address);
+                    SmartDevice device = new SmartDevice(entry.refName, entry.name, address, entry.offlineDetection);
                     devices.add(device);
                 }
             }
@@ -72,5 +72,6 @@ public class DeviceRegistry {
         @SerializedName("refName") String refName;
         @SerializedName("name")    String name;
         @SerializedName("ip")      String ip;
+        @SerializedName("offlineDetection") boolean offlineDetection;
     }
 }

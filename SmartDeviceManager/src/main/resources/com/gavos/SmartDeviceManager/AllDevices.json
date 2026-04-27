@@ -3,12 +3,14 @@
     {
       "name": "gavpc",
       "refName": "PC1",
-      "ip": "192.168.4.100"
+      "ip": "192.168.4.100",
+      "offlineDetection": false
     },
     {
       "name": "bedroomlight",
       "refName": "Main Bedroom Light",
-      "ip": "192.168.4.50"
+      "ip": "192.168.4.50",
+      "offlineDetection": true
     }
   ]
 }

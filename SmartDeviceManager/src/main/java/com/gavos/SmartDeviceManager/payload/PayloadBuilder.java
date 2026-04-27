@@ -49,6 +49,10 @@ public class PayloadBuilder {
     }
 
     public String buildSunriseStep(String refName, int fadeValue, int tempValue) {
+        return buildTempFade(fadeValue, tempValue);
+    }
+
+    public String buildTempFade(int fadeValue, int tempValue) {
         JsonObject params = new JsonObject();
         params.addProperty("state", true);
         params.addProperty("dimming", fadeValue);
