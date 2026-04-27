@@ -86,14 +86,14 @@ public class PayloadBuilder {
         int clamped = Math.max(0, Math.min(TRANSITION_MAX, value));
         JsonObject params = new JsonObject();
         params.addProperty("state", true);
-        params.addProperty("r", 0);
-        params.addProperty("g", 0);
-        params.addProperty("b", 0);
 
         if (clamped <= TRANSITION_HANDOVER) {
             float ratio = (float) clamped / TRANSITION_HANDOVER;
             int white = interpolate(TRANSITION_MIN_WHITE, TRANSITION_HANDOVER_WHITE, ratio);
             int dimming = interpolate(TRANSITION_MIN_DIMMING, TRANSITION_MAX, ratio);
+            params.addProperty("r", 0);
+            params.addProperty("g", 0);
+            params.addProperty("b", 0);
             params.addProperty("c", 0);
             params.addProperty("w", white);
             params.addProperty("dimming", dimming);
