@@ -1,4 +1,4 @@
-package com.gavos.SmartDeviceManager.service;
+package com.SmartDeviceManager.service;
 
 import java.util.List;
 import java.util.Map;
@@ -12,9 +12,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import com.gavos.SmartDeviceManager.model.DeviceCommand;
-import com.gavos.SmartDeviceManager.network.DeviceUdpClient;
-import com.gavos.SmartDeviceManager.payload.PayloadBuilder;
+import com.SmartDeviceManager.model.DeviceCommand;
+import com.SmartDeviceManager.network.DeviceUdpClient;
+import com.SmartDeviceManager.payload.PayloadBuilder;
 
 /**
  * Manages sunrise sequences: fade and temperature ramp from 0→100 over N minutes.
@@ -27,6 +27,7 @@ public class SunriseService {
 
     private static final Logger log = LoggerFactory.getLogger(SunriseService.class);
     private static final double CURVE_EXPONENT = 2.5;
+    private static final int MIN_VISIBLE_TRANSITION = 11;
 
     private final DeviceUdpClient udpClient;
     private final PayloadBuilder payloadBuilder;
@@ -70,7 +71,7 @@ public class SunriseService {
                 float linear = (float) elapsed[0] / totalSeconds;
                 float curved = (float) Math.pow(linear, CURVE_EXPONENT);
 
-                int transitionValue = Math.round(curved * 100);
+                int transitionValue = Math.max(MIN_VISIBLE_TRANSITION, Math.round(curved * 100));
 
                 if (transitionValue != lastTransition[0]) {
                     DeviceCommand command = new DeviceCommand(refName, "transition", List.of(String.valueOf(transitionValue)));

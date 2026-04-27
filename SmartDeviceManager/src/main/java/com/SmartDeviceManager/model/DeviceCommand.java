@@ -1,4 +1,4 @@
-package com.gavos.SmartDeviceManager.model;
+package com.SmartDeviceManager.model;
 
 import java.util.List;
 

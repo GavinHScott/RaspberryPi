@@ -1,4 +1,4 @@
-package com.gavos.SmartDeviceManager.registry;
+package com.SmartDeviceManager.registry;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -9,7 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
-import com.gavos.SmartDeviceManager.model.SmartDevice;
+import com.SmartDeviceManager.model.SmartDevice;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.annotations.SerializedName;
@@ -19,7 +19,7 @@ import jakarta.annotation.PostConstruct;
 @Component
 public class DeviceRegistry {
 
-    @Value("classpath:/com/gavos/SmartDeviceManager/AllDevices.json")
+    @Value("classpath:/com/SmartDeviceManager/AllDevices.json")
     private Resource devicesResource;
 
     private final List<SmartDevice> devices = new ArrayList<>();

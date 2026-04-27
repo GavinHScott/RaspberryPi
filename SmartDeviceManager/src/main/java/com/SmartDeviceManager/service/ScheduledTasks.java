@@ -1,4 +1,4 @@
-package com.gavos.SmartDeviceManager.service;
+package com.SmartDeviceManager.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

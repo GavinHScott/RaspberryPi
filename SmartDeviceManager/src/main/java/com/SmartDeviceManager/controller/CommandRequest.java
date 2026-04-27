@@ -1,4 +1,4 @@
-package com.gavos.SmartDeviceManager.controller;
+package com.SmartDeviceManager.controller;
 
 import java.util.Collections;
 import java.util.List;

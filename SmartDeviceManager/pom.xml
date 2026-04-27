@@ -11,7 +11,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.gavos</groupId>
+    <groupId>com.SmartDeviceManager</groupId>
     <artifactId>SmartDeviceManager</artifactId>
     <version>1.0.0</version>
     <packaging>jar</packaging>

@@ -1,4 +1,4 @@
-package com.gavos.SmartDeviceManager.network;
+package com.SmartDeviceManager.network;
 
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -6,8 +6,8 @@ import java.net.InetAddress;
 
 import org.springframework.stereotype.Service;
 
-import com.gavos.SmartDeviceManager.model.SmartDevice;
-import com.gavos.SmartDeviceManager.registry.DeviceRegistry;
+import com.SmartDeviceManager.model.SmartDevice;
+import com.SmartDeviceManager.registry.DeviceRegistry;
 import com.google.gson.Gson;
 import com.google.gson.JsonSyntaxException;
 

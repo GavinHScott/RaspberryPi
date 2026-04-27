@@ -1,4 +1,4 @@
-package com.gavos.SmartDeviceManager;
+package com.SmartDeviceManager;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

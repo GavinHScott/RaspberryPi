@@ -1,4 +1,4 @@
-package com.gavos.SmartDeviceManager.service;
+package com.SmartDeviceManager.service;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -17,11 +17,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import com.gavos.SmartDeviceManager.model.DeviceCommand;
-import com.gavos.SmartDeviceManager.model.SmartDevice;
-import com.gavos.SmartDeviceManager.network.DeviceUdpClient;
-import com.gavos.SmartDeviceManager.payload.PayloadBuilder;
-import com.gavos.SmartDeviceManager.registry.DeviceRegistry;
+import com.SmartDeviceManager.model.DeviceCommand;
+import com.SmartDeviceManager.model.SmartDevice;
+import com.SmartDeviceManager.network.DeviceUdpClient;
+import com.SmartDeviceManager.payload.PayloadBuilder;
+import com.SmartDeviceManager.registry.DeviceRegistry;
 
 import jakarta.annotation.PreDestroy;
 

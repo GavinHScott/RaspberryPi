@@ -1,4 +1,4 @@
-package com.gavos.SmartDeviceManager.service;
+package com.SmartDeviceManager.service;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -6,8 +6,8 @@ import java.time.Instant;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.gavos.SmartDeviceManager.model.SmartDevice;
-import com.gavos.SmartDeviceManager.network.DeviceUdpClient;
+import com.SmartDeviceManager.model.SmartDevice;
+import com.SmartDeviceManager.network.DeviceUdpClient;
 
 @Service
 public class DeviceHealthService {

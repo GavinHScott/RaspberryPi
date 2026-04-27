@@ -1,8 +1,8 @@
-package com.gavos.SmartDeviceManager.payload;
+package com.SmartDeviceManager.payload;
 
 import org.springframework.stereotype.Service;
 
-import com.gavos.SmartDeviceManager.model.DeviceCommand;
+import com.SmartDeviceManager.model.DeviceCommand;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 

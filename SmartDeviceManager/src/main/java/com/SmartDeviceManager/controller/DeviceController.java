@@ -1,4 +1,4 @@
-package com.gavos.SmartDeviceManager.controller;
+package com.SmartDeviceManager.controller;
 
 import java.util.List;
 
@@ -8,8 +8,8 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.gavos.SmartDeviceManager.registry.DeviceRegistry;
-import com.gavos.SmartDeviceManager.service.CommandParser;
+import com.SmartDeviceManager.registry.DeviceRegistry;
+import com.SmartDeviceManager.service.CommandParser;
 
 @RestController
 public class DeviceController {
