@@ -89,12 +89,12 @@ public class PayloadBuilder {
         params.addProperty("r", 0);
         params.addProperty("g", 0);
         params.addProperty("b", 0);
-        params.addProperty("c", 0);
 
         if (clamped <= TRANSITION_HANDOVER) {
             float ratio = (float) clamped / TRANSITION_HANDOVER;
             int white = interpolate(TRANSITION_MIN_WHITE, TRANSITION_HANDOVER_WHITE, ratio);
             int dimming = interpolate(TRANSITION_MIN_DIMMING, TRANSITION_MAX, ratio);
+            params.addProperty("c", 0);
             params.addProperty("w", white);
             params.addProperty("dimming", dimming);
             return params;
@@ -103,7 +103,6 @@ public class PayloadBuilder {
         float ratio = (float) (clamped - TRANSITION_HANDOVER) / (TRANSITION_MAX - TRANSITION_HANDOVER);
         int temp = interpolate(TRANSITION_HANDOVER_TEMP, TEMP_MAX, ratio);
         int dimming = interpolate(TRANSITION_HANDOVER_DIMMING, TRANSITION_MAX, ratio);
-        params.addProperty("w", 0);
         params.addProperty("temp", temp);
         params.addProperty("dimming", dimming);
         return params;
