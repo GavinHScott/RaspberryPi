@@ -1,5 +1,6 @@
 package com.gavos.SmartDeviceManager.service;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -11,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import com.gavos.SmartDeviceManager.model.DeviceCommand;
 import com.gavos.SmartDeviceManager.network.DeviceUdpClient;
 import com.gavos.SmartDeviceManager.payload.PayloadBuilder;
 
@@ -56,8 +58,7 @@ public class SunriseService {
 
         int totalSeconds = minutes * 60;
         int[] elapsed = {0};
-        int[] lastFade = {-1};
-        int[] lastTemp = {-1};
+        int[] lastTransition = {-1};
 
         ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(() -> {
             try {
@@ -69,14 +70,13 @@ public class SunriseService {
                 float linear = (float) elapsed[0] / totalSeconds;
                 float curved = (float) Math.pow(linear, CURVE_EXPONENT);
 
-                int fadeValue = Math.max(1, Math.round(curved * 100));
-                int tempValue = Math.round(curved * 100);
+                int transitionValue = Math.round(curved * 100);
 
-                if (fadeValue != lastFade[0] || tempValue != lastTemp[0]) {
-                    String payload = payloadBuilder.buildSunriseStep(refName, fadeValue, tempValue);
+                if (transitionValue != lastTransition[0]) {
+                    DeviceCommand command = new DeviceCommand(refName, "transition", List.of(String.valueOf(transitionValue)));
+                    String payload = payloadBuilder.build(command);
                     udpClient.send(refName, payload);
-                    lastFade[0] = fadeValue;
-                    lastTemp[0] = tempValue;
+                    lastTransition[0] = transitionValue;
                 }
             } catch (Exception e) {
                 log.error("Step failed for {}: {}", refName, e.getMessage());

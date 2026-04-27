@@ -68,6 +68,13 @@ public class CommandParser {
                 if (params.size() != 1) throw new IllegalArgumentException(command + " requires one integer value\n");
                 parseInt(params.get(0), command);
             }
+            case "transition" -> {
+                if (params.size() != 1) throw new IllegalArgumentException("transition requires one integer value\n");
+                int value = parseInt(params.get(0), "transition");
+                if (value < 0 || value > 100) {
+                    throw new IllegalArgumentException("transition must be between 0 and 100\n");
+                }
+            }
             case "rgb" -> {
                 if (params.size() != 3) throw new IllegalArgumentException("rgb requires three integer values: r g b\n");
                 parseInt(params.get(0), "r");
