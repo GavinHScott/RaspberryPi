@@ -3,6 +3,7 @@ package com.gavos.SmartDeviceManager.service;
 import java.time.Clock;
 import java.time.Instant;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.gavos.SmartDeviceManager.model.SmartDevice;
@@ -14,6 +15,7 @@ public class DeviceHealthService {
     private final DeviceUdpClient udpClient;
     private final Clock clock;
 
+    @Autowired
     public DeviceHealthService(DeviceUdpClient udpClient) {
         this(udpClient, Clock.systemDefaultZone());
     }

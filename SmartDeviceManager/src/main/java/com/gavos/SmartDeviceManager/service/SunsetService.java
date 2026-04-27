@@ -13,6 +13,7 @@ import java.util.concurrent.Executors;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -44,6 +45,7 @@ public class SunsetService {
     private final Map<String, Instant> offlineSince = new ConcurrentHashMap<>();
     private final Map<String, Boolean> observedOfflineCycle = new ConcurrentHashMap<>();
 
+    @Autowired
     public SunsetService(DeviceRegistry registry, DeviceHealthService deviceHealthService,
                          DeviceUdpClient udpClient, PayloadBuilder payloadBuilder) {
         this(registry, deviceHealthService, udpClient, payloadBuilder,
