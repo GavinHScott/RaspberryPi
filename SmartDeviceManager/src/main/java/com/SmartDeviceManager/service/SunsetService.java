@@ -82,26 +82,44 @@ public class SunsetService {
     @EventListener(ApplicationReadyEvent.class)
     public void runSunsetChecksOnStartup() {
         log.info("SunsetService running startup check now that the application is ready.");
-        runSunsetChecks("startup");
+        try {
+            runSunsetChecks("startup");
+            log.info("SunsetService startup check completed.");
+        } catch (Exception e) {
+            log.error("SunsetService startup check failed: {}", e.getMessage(), e);
+            notifications.send("SunsetService startup check failed",
+                    "SunsetService startup check failed: " + e.getMessage());
+        }
     }
 
     @Scheduled(fixedDelayString = "${device.health.ping-interval-ms:5000}", initialDelayString = "0")
     public void runScheduledSunsetChecks() {
-        runSunsetChecks("scheduler");
+        try {
+            runSunsetChecks("scheduler");
+        } catch (Exception e) {
+            log.error("SunsetService scheduled check failed: {}", e.getMessage(), e);
+            notifications.send("SunsetService scheduled check failed",
+                    "SunsetService scheduled check failed: " + e.getMessage());
+        }
     }
 
     private synchronized void runSunsetChecks(String trigger) {
+        LocalTime currentTime = LocalTime.now(clock);
+        if ("startup".equals(trigger)) {
+            log.info("SunsetService startup check entered core logic at {}.", currentTime);
+        }
+
         if (!firstSchedulerRunLogged) {
             firstSchedulerRunLogged = true;
             log.info("SunsetService checks are running. First trigger was {}; current local time is {}.",
-                    trigger, LocalTime.now(clock));
+                    trigger, currentTime);
         }
 
         if (!isDetectionWindowOpen()) {
             if (!waitingForWindowLogged) {
                 waitingForWindowLogged = true;
                 log.info("SunsetService waiting for detection window. Current local time is {}; starts at {}.",
-                        LocalTime.now(clock), DETECTION_START);
+                        currentTime, DETECTION_START);
             }
             closeMonitoringWindow();
             return;
