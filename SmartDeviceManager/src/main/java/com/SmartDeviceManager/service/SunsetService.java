@@ -81,10 +81,8 @@ public class SunsetService {
 
     @EventListener(ApplicationReadyEvent.class)
     public void runSunsetChecksOnStartup() {
-        log.info("SunsetService running startup check now that the application is ready.");
         try {
             runSunsetChecks("startup");
-            log.info("SunsetService startup check completed.");
         } catch (Exception e) {
             log.error("SunsetService startup check failed: {}", e.getMessage(), e);
             notifications.send("SunsetService startup check failed",
@@ -105,9 +103,7 @@ public class SunsetService {
 
     private synchronized void runSunsetChecks(String trigger) {
         LocalTime currentTime = LocalTime.now(clock);
-        if ("startup".equals(trigger)) {
-            log.info("SunsetService startup check entered core logic at {}.", currentTime);
-        }
+        boolean detectionWindowOpen = isDetectionWindowOpen();
 
         if (!firstSchedulerRunLogged) {
             firstSchedulerRunLogged = true;
@@ -115,7 +111,7 @@ public class SunsetService {
                     trigger, currentTime);
         }
 
-        if (!isDetectionWindowOpen()) {
+        if (!detectionWindowOpen) {
             if (!waitingForWindowLogged) {
                 waitingForWindowLogged = true;
                 log.info("SunsetService waiting for detection window. Current local time is {}; starts at {}.",
@@ -140,7 +136,6 @@ public class SunsetService {
     private void runSunsetCheck(SmartDevice device) {
         Instant checkedAt = Instant.now(clock);
         boolean online = deviceHealthService.updateDeviceHealth(device, checkedAt);
-        log.info("SunsetService checked {}: online={}", device.getRefName(), online);
 
         Boolean previousOnline = lastKnownOnline.put(device.getRefName(), online);
         if (previousOnline == null) {
@@ -179,13 +174,29 @@ public class SunsetService {
 
     private boolean isDetectionWindowOpen() {
         LocalTime now = LocalTime.now(clock);
-        return !now.isBefore(DETECTION_START) && now.isBefore(DETECTION_END);
+        if (DETECTION_START.equals(DETECTION_END)) {
+            return true;
+        }
+
+        if (DETECTION_START.isBefore(DETECTION_END)) {
+            return !now.isBefore(DETECTION_START) && now.isBefore(DETECTION_END);
+        }
+
+        return !now.isBefore(DETECTION_START) || now.isBefore(DETECTION_END);
     }
 
     private void clearState() {
         lastKnownOnline.clear();
         offlineSince.clear();
         observedOfflineCycle.clear();
+    }
+
+    private String describeDevices(List<SmartDevice> devices) {
+        return devices.stream()
+                .map(device -> device.getRefName() + " (" + device.getName() + ", "
+                        + device.getInetAddress().getHostAddress() + ")")
+                .toList()
+                .toString();
     }
 
     private void openMonitoringWindow(List<SmartDevice> monitoredDevices, String trigger) {
@@ -195,12 +206,11 @@ public class SunsetService {
 
         waitingForWindowLogged = false;
         monitoringWindowOpen = true;
-        String deviceNames = monitoredDevices.stream()
-                .map(device -> device.getRefName() + " (" + device.getName() + ")")
-                .toList()
-                .toString();
         log.info("SunsetService detection window opened by {} at {} with {} monitored devices: {}",
-                trigger, LocalTime.now(clock), monitoredDevices.size(), deviceNames);
+                trigger, LocalTime.now(clock), monitoredDevices.size(), describeDevices(monitoredDevices));
+        if (monitoredDevices.isEmpty()) {
+            log.warn("SunsetService has no devices configured with offlineDetection=true; no sunset action will run.");
+        }
         deviceHealthService.startMonitoring(monitoredDevices);
     }
 
