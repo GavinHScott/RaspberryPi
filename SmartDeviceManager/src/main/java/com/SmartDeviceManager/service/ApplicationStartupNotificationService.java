@@ -1,6 +1,7 @@
 package com.SmartDeviceManager.service;
 
 import java.time.Instant;
+import java.time.ZonedDateTime;
 
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -18,7 +19,7 @@ public class ApplicationStartupNotificationService {
     @EventListener(ApplicationReadyEvent.class)
     public void notifyApplicationReady() {
         notifications.send("SmartDeviceManager started",
-                "ApplicationStartupNotificationService reports SmartDeviceManager started successfully at "
-                        + Instant.now() + ".");
+                "ApplicationStartupNotificationService reports SmartDeviceManager started successfully at local time "
+                        + ZonedDateTime.now() + " (UTC " + Instant.now() + ").");
     }
 }
