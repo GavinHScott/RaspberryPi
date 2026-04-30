@@ -19,6 +19,9 @@ import com.SmartDeviceManager.network.DeviceUdpClient;
 import com.SmartDeviceManager.payload.PayloadBuilder;
 import com.SmartDeviceManager.registry.DeviceRegistry;
 
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+
 /**
  * Manages sunrise sequences: fade and temperature ramp from 0→100 over N minutes.
  * Sends one combined UDP packet per second, only when values change.
@@ -48,6 +51,11 @@ public class SunriseService {
         this.notifications = notifications;
     }
 
+    @PostConstruct
+    public void logStartup() {
+        log.info("SunriseService loaded. Active sunrise scheduler thread pool size is 2.");
+    }
+
     /**
      * Starts a sunrise sequence for the given device.
      * Cancels any previously running sunrise for that device.
@@ -58,6 +66,7 @@ public class SunriseService {
      * @param minutes total duration of the sunrise
      */
     public void start(String refName, int minutes) {
+        log.info("SunriseService start requested for {} over {} minutes", refName, minutes);
         SmartDevice device = registry.getByRefName(refName);
         if (device == null) {
             log.error("Device {} not found, aborting sunrise.", refName);
@@ -65,11 +74,14 @@ public class SunriseService {
             return;
         }
 
+        log.info("SunriseService found {} ({}) at {}; pinging before start",
+                device.getRefName(), device.getName(), device.getInetAddress().getHostAddress());
         if (!udpClient.ping(refName)) {
             log.error("Ping failed for {}, aborting sunrise.", refName);
             notifications.send("SunriseService failed to start", refName + " was found but did not respond to ping.");
             return;
         }
+        log.info("SunriseService ping succeeded for {}", refName);
 
         cancel(refName);
 
@@ -80,11 +92,14 @@ public class SunriseService {
 
         notifications.send("SunriseService started",
                 "SunriseService found and connected to " + refName + ". Running for " + minutes + " minutes.");
+        log.info("SunriseService scheduling {} second sunrise for {}", totalSeconds, refName);
 
         ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(() -> {
             try {
                 if (elapsed[0] > totalSeconds) {
                     String status = stepFailed.get() ? "finished with errors" : "completed successfully";
+                    log.info("SunriseService {} for {}. Final transition: {}",
+                            status, refName, lastTransition[0]);
                     notifications.send("SunriseService finished",
                             "SunriseService " + status + " for " + refName + ". Final transition: " + lastTransition[0] + ".");
                     cancel(refName);
@@ -101,10 +116,14 @@ public class SunriseService {
                     String payload = payloadBuilder.build(command);
                     udpClient.send(refName, payload);
                     lastTransition[0] = transitionValue;
+                    if (elapsed[0] == 0 || elapsed[0] % 300 == 0 || transitionValue == 100) {
+                        log.info("SunriseService progress for {}: elapsed={}s/{}s transition={}",
+                                refName, elapsed[0], totalSeconds, transitionValue);
+                    }
                 }
             } catch (Exception e) {
                 stepFailed.set(true);
-                log.error("Step failed for {}: {}", refName, e.getMessage());
+                log.error("SunriseService step failed for {} at elapsed {}s: {}", refName, elapsed[0], e.getMessage());
             } finally {
                 elapsed[0]++;
             }
@@ -120,6 +139,13 @@ public class SunriseService {
         ScheduledFuture<?> existing = activeSunrises.remove(refName);
         if (existing != null) {
             existing.cancel(false);
+            log.info("SunriseService cancelled active sunrise for {}", refName);
         }
+    }
+
+    @PreDestroy
+    public void shutdown() {
+        log.info("SunriseService shutting down scheduler");
+        scheduler.shutdownNow();
     }
 }

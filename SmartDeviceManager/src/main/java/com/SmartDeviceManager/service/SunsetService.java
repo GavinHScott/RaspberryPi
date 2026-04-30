@@ -14,6 +14,8 @@ import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -23,6 +25,7 @@ import com.SmartDeviceManager.network.DeviceUdpClient;
 import com.SmartDeviceManager.payload.PayloadBuilder;
 import com.SmartDeviceManager.registry.DeviceRegistry;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
 @Service
@@ -46,6 +49,8 @@ public class SunsetService {
     private final Map<String, Instant> offlineSince = new ConcurrentHashMap<>();
     private final Map<String, Boolean> observedOfflineCycle = new ConcurrentHashMap<>();
     private volatile boolean monitoringWindowOpen;
+    private volatile boolean firstSchedulerRunLogged;
+    private volatile boolean waitingForWindowLogged;
 
     @Autowired
     public SunsetService(DeviceRegistry registry, DeviceHealthService deviceHealthService,
@@ -68,9 +73,36 @@ public class SunsetService {
         this.pingExecutor = pingExecutor;
     }
 
-    @Scheduled(fixedDelayString = "${device.health.ping-interval-ms:5000}")
-    public void runSunsetChecks() {
+    @PostConstruct
+    public void logStartup() {
+        log.info("SunsetService loaded. Detection window is {} to {} local time. Ping interval property controls scheduler delay.",
+                DETECTION_START, DETECTION_END);
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void runSunsetChecksOnStartup() {
+        log.info("SunsetService running startup check now that the application is ready.");
+        runSunsetChecks("startup");
+    }
+
+    @Scheduled(fixedDelayString = "${device.health.ping-interval-ms:5000}", initialDelayString = "0")
+    public void runScheduledSunsetChecks() {
+        runSunsetChecks("scheduler");
+    }
+
+    private synchronized void runSunsetChecks(String trigger) {
+        if (!firstSchedulerRunLogged) {
+            firstSchedulerRunLogged = true;
+            log.info("SunsetService checks are running. First trigger was {}; current local time is {}.",
+                    trigger, LocalTime.now(clock));
+        }
+
         if (!isDetectionWindowOpen()) {
+            if (!waitingForWindowLogged) {
+                waitingForWindowLogged = true;
+                log.info("SunsetService waiting for detection window. Current local time is {}; starts at {}.",
+                        LocalTime.now(clock), DETECTION_START);
+            }
             closeMonitoringWindow();
             return;
         }
@@ -78,7 +110,7 @@ public class SunsetService {
         List<SmartDevice> monitoredDevices = registry.getAll().stream()
                 .filter(SmartDevice::isOfflineDetection)
                 .toList();
-        openMonitoringWindow(monitoredDevices);
+        openMonitoringWindow(monitoredDevices, trigger);
 
         List<CompletableFuture<Void>> pings = monitoredDevices.stream()
                 .map(device -> CompletableFuture.runAsync(() -> runSunsetCheck(device), pingExecutor))
@@ -90,13 +122,16 @@ public class SunsetService {
     private void runSunsetCheck(SmartDevice device) {
         Instant checkedAt = Instant.now(clock);
         boolean online = deviceHealthService.updateDeviceHealth(device, checkedAt);
+        log.info("SunsetService checked {}: online={}", device.getRefName(), online);
 
         Boolean previousOnline = lastKnownOnline.put(device.getRefName(), online);
         if (previousOnline == null) {
             if (!online) {
                 offlineSince.put(device.getRefName(), checkedAt);
                 observedOfflineCycle.put(device.getRefName(), false);
+                log.warn("SunsetService first check found {} offline", device.getRefName());
             } else {
+                log.info("SunsetService first check found {} online; sending nightly off", device.getRefName());
                 sendNightlyOff(device, "first online check after 21:00");
             }
             return;
@@ -135,12 +170,19 @@ public class SunsetService {
         observedOfflineCycle.clear();
     }
 
-    private void openMonitoringWindow(List<SmartDevice> monitoredDevices) {
+    private void openMonitoringWindow(List<SmartDevice> monitoredDevices, String trigger) {
         if (monitoringWindowOpen) {
             return;
         }
 
+        waitingForWindowLogged = false;
         monitoringWindowOpen = true;
+        String deviceNames = monitoredDevices.stream()
+                .map(device -> device.getRefName() + " (" + device.getName() + ")")
+                .toList()
+                .toString();
+        log.info("SunsetService detection window opened by {} at {} with {} monitored devices: {}",
+                trigger, LocalTime.now(clock), monitoredDevices.size(), deviceNames);
         deviceHealthService.startMonitoring(monitoredDevices);
     }
 
@@ -151,6 +193,7 @@ public class SunsetService {
         }
 
         monitoringWindowOpen = false;
+        log.info("SunsetService detection window closed at {}. Clearing sunset state.", LocalTime.now(clock));
         clearState();
         deviceHealthService.stopMonitoring();
     }
