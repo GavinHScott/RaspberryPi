@@ -7,14 +7,17 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import com.SmartDeviceManager.model.DeviceCommand;
+import com.SmartDeviceManager.model.SmartDevice;
 import com.SmartDeviceManager.network.DeviceUdpClient;
 import com.SmartDeviceManager.payload.PayloadBuilder;
+import com.SmartDeviceManager.registry.DeviceRegistry;
 
 /**
  * Manages sunrise sequences: fade and temperature ramp from 0→100 over N minutes.
@@ -31,13 +34,18 @@ public class SunriseService {
 
     private final DeviceUdpClient udpClient;
     private final PayloadBuilder payloadBuilder;
+    private final DeviceRegistry registry;
+    private final NtfyNotificationService notifications;
 
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2);
     private final Map<String, ScheduledFuture<?>> activeSunrises = new ConcurrentHashMap<>();
 
-    public SunriseService(DeviceUdpClient udpClient, PayloadBuilder payloadBuilder) {
+    public SunriseService(DeviceUdpClient udpClient, PayloadBuilder payloadBuilder,
+                          DeviceRegistry registry, NtfyNotificationService notifications) {
         this.udpClient = udpClient;
         this.payloadBuilder = payloadBuilder;
+        this.registry = registry;
+        this.notifications = notifications;
     }
 
     /**
@@ -50,8 +58,16 @@ public class SunriseService {
      * @param minutes total duration of the sunrise
      */
     public void start(String refName, int minutes) {
+        SmartDevice device = registry.getByRefName(refName);
+        if (device == null) {
+            log.error("Device {} not found, aborting sunrise.", refName);
+            notifications.send("SunriseService failed to start", "Bulb not found: " + refName);
+            return;
+        }
+
         if (!udpClient.ping(refName)) {
             log.error("Ping failed for {}, aborting sunrise.", refName);
+            notifications.send("SunriseService failed to start", refName + " was found but did not respond to ping.");
             return;
         }
 
@@ -60,10 +76,17 @@ public class SunriseService {
         int totalSeconds = minutes * 60;
         int[] elapsed = {0};
         int[] lastTransition = {-1};
+        AtomicBoolean stepFailed = new AtomicBoolean(false);
+
+        notifications.send("SunriseService started",
+                "SunriseService found and connected to " + refName + ". Running for " + minutes + " minutes.");
 
         ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(() -> {
             try {
                 if (elapsed[0] > totalSeconds) {
+                    String status = stepFailed.get() ? "finished with errors" : "completed successfully";
+                    notifications.send("SunriseService finished",
+                            "SunriseService " + status + " for " + refName + ". Final transition: " + lastTransition[0] + ".");
                     cancel(refName);
                     return;
                 }
@@ -80,6 +103,7 @@ public class SunriseService {
                     lastTransition[0] = transitionValue;
                 }
             } catch (Exception e) {
+                stepFailed.set(true);
                 log.error("Step failed for {}: {}", refName, e.getMessage());
             } finally {
                 elapsed[0]++;

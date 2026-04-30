@@ -39,26 +39,31 @@ public class SunsetService {
     private final DeviceHealthService deviceHealthService;
     private final DeviceUdpClient udpClient;
     private final PayloadBuilder payloadBuilder;
+    private final NtfyNotificationService notifications;
     private final Clock clock;
     private final ExecutorService pingExecutor;
     private final Map<String, Boolean> lastKnownOnline = new ConcurrentHashMap<>();
     private final Map<String, Instant> offlineSince = new ConcurrentHashMap<>();
     private final Map<String, Boolean> observedOfflineCycle = new ConcurrentHashMap<>();
+    private volatile boolean monitoringWindowOpen;
 
     @Autowired
     public SunsetService(DeviceRegistry registry, DeviceHealthService deviceHealthService,
-                         DeviceUdpClient udpClient, PayloadBuilder payloadBuilder) {
-        this(registry, deviceHealthService, udpClient, payloadBuilder,
+                         DeviceUdpClient udpClient, PayloadBuilder payloadBuilder,
+                         NtfyNotificationService notifications) {
+        this(registry, deviceHealthService, udpClient, payloadBuilder, notifications,
                 Clock.systemDefaultZone(), Executors.newVirtualThreadPerTaskExecutor());
     }
 
     SunsetService(DeviceRegistry registry, DeviceHealthService deviceHealthService,
                   DeviceUdpClient udpClient, PayloadBuilder payloadBuilder,
+                  NtfyNotificationService notifications,
                   Clock clock, ExecutorService pingExecutor) {
         this.registry = registry;
         this.deviceHealthService = deviceHealthService;
         this.udpClient = udpClient;
         this.payloadBuilder = payloadBuilder;
+        this.notifications = notifications;
         this.clock = clock;
         this.pingExecutor = pingExecutor;
     }
@@ -66,12 +71,16 @@ public class SunsetService {
     @Scheduled(fixedDelayString = "${device.health.ping-interval-ms:5000}")
     public void runSunsetChecks() {
         if (!isDetectionWindowOpen()) {
-            clearState();
+            closeMonitoringWindow();
             return;
         }
 
-        List<CompletableFuture<Void>> pings = registry.getAll().stream()
+        List<SmartDevice> monitoredDevices = registry.getAll().stream()
                 .filter(SmartDevice::isOfflineDetection)
+                .toList();
+        openMonitoringWindow(monitoredDevices);
+
+        List<CompletableFuture<Void>> pings = monitoredDevices.stream()
                 .map(device -> CompletableFuture.runAsync(() -> runSunsetCheck(device), pingExecutor))
                 .toList();
 
@@ -126,24 +135,56 @@ public class SunsetService {
         observedOfflineCycle.clear();
     }
 
+    private void openMonitoringWindow(List<SmartDevice> monitoredDevices) {
+        if (monitoringWindowOpen) {
+            return;
+        }
+
+        monitoringWindowOpen = true;
+        deviceHealthService.startMonitoring(monitoredDevices);
+    }
+
+    private void closeMonitoringWindow() {
+        if (!monitoringWindowOpen) {
+            clearState();
+            return;
+        }
+
+        monitoringWindowOpen = false;
+        clearState();
+        deviceHealthService.stopMonitoring();
+    }
+
     private void sendShortOutageRecovery(SmartDevice device) {
+        notifications.send("SunsetService recovery started",
+                "SunsetService sending short-outage recovery to " + device.getRefName() + ".");
         try {
             String payload = payloadBuilder.buildTempFade(RECOVERY_FADE, RECOVERY_TEMP);
             udpClient.send(device.getRefName(), payload);
             log.info("Sent short-outage recovery to {}: temp {}, fade {}",
                     device.getRefName(), RECOVERY_TEMP, RECOVERY_FADE);
+            notifications.send("SunsetService recovery succeeded",
+                    "SunsetService set " + device.getRefName() + " to temp " + RECOVERY_TEMP + ", fade " + RECOVERY_FADE + ".");
         } catch (Exception e) {
             log.error("Short-outage recovery failed for {}: {}", device.getRefName(), e.getMessage());
+            notifications.send("SunsetService recovery failed",
+                    "SunsetService failed for " + device.getRefName() + ": " + e.getMessage());
         }
     }
 
     private void sendNightlyOff(SmartDevice device, String reason) {
+        notifications.send("SunsetService off started",
+                "SunsetService sending nightly off to " + device.getRefName() + " (" + reason + ").");
         try {
             String payload = payloadBuilder.build(new DeviceCommand(device.getRefName(), "off", List.of()));
             udpClient.send(device.getRefName(), payload);
             log.info("Sent nightly off to {} ({})", device.getRefName(), reason);
+            notifications.send("SunsetService off succeeded",
+                    "SunsetService confirmed " + device.getRefName() + " is off.");
         } catch (Exception e) {
             log.error("Nightly off failed for {}: {}", device.getRefName(), e.getMessage());
+            notifications.send("SunsetService off failed",
+                    "SunsetService failed for " + device.getRefName() + ": " + e.getMessage());
         }
     }
 
