@@ -75,7 +75,7 @@ public class SunsetService {
 
     @PostConstruct
     public void logStartup() {
-        log.info("SunsetService loaded. Detection window is {} to {} local time. Ping interval property controls scheduler delay.",
+        log.info("Sunset service loaded. Detection window: {} to {} local time. Ping interval controls scheduler delay.",
                 DETECTION_START, DETECTION_END);
     }
 
@@ -84,7 +84,7 @@ public class SunsetService {
         try {
             runSunsetChecks("startup");
         } catch (Exception e) {
-            log.error("SunsetService startup check failed: {}", e.getMessage(), e);
+            log.error("Sunset startup check failed: {}", e.getMessage(), e);
             notifications.send("SunsetService startup check failed",
                     "SunsetService startup check failed: " + e.getMessage());
         }
@@ -95,7 +95,7 @@ public class SunsetService {
         try {
             runSunsetChecks("scheduler");
         } catch (Exception e) {
-            log.error("SunsetService scheduled check failed: {}", e.getMessage(), e);
+            log.error("Sunset scheduled check failed: {}", e.getMessage(), e);
             notifications.send("SunsetService scheduled check failed",
                     "SunsetService scheduled check failed: " + e.getMessage());
         }
@@ -107,14 +107,14 @@ public class SunsetService {
 
         if (!firstSchedulerRunLogged) {
             firstSchedulerRunLogged = true;
-            log.info("SunsetService checks are running. First trigger was {}; current local time is {}.",
+            log.info("Sunset checks running. First trigger: {}, current local time: {}.",
                     trigger, currentTime);
         }
 
         if (!detectionWindowOpen) {
             if (!waitingForWindowLogged) {
                 waitingForWindowLogged = true;
-                log.info("SunsetService waiting for detection window. Current local time is {}; starts at {}.",
+                log.info("Waiting for sunset detection window. Current local time: {}; starts at {}.",
                         currentTime, DETECTION_START);
             }
             closeMonitoringWindow();
@@ -142,9 +142,9 @@ public class SunsetService {
             if (!online) {
                 offlineSince.put(device.getRefName(), checkedAt);
                 observedOfflineCycle.put(device.getRefName(), false);
-                log.warn("SunsetService first check found {} offline", device.getRefName());
+                log.warn("First sunset check: {} is offline", device.getRefName());
             } else {
-                log.info("SunsetService first check found {} online; sending nightly off", device.getRefName());
+                log.info("First sunset check: {} is online; sending nightly off", device.getRefName());
                 sendNightlyOff(device, "first online check after 21:00");
             }
             return;
@@ -206,10 +206,10 @@ public class SunsetService {
 
         waitingForWindowLogged = false;
         monitoringWindowOpen = true;
-        log.info("SunsetService detection window opened by {} at {} with {} monitored devices: {}",
+        log.info("Detection window opened by {} at {} with {} monitored devices: {}",
                 trigger, LocalTime.now(clock), monitoredDevices.size(), describeDevices(monitoredDevices));
         if (monitoredDevices.isEmpty()) {
-            log.warn("SunsetService has no devices configured with offlineDetection=true; no sunset action will run.");
+            log.warn("No devices configured with offlineDetection=true; no sunset action will run.");
         }
         deviceHealthService.startMonitoring(monitoredDevices);
     }
@@ -221,7 +221,7 @@ public class SunsetService {
         }
 
         monitoringWindowOpen = false;
-        log.info("SunsetService detection window closed at {}. Clearing sunset state.", LocalTime.now(clock));
+        log.info("Detection window closed at {}. Clearing sunset state.", LocalTime.now(clock));
         clearState();
         deviceHealthService.stopMonitoring();
     }
@@ -232,7 +232,7 @@ public class SunsetService {
         try {
             String payload = payloadBuilder.buildTempFade(RECOVERY_FADE, RECOVERY_TEMP);
             udpClient.send(device.getRefName(), payload);
-            log.info("Sent short-outage recovery to {}: temp {}, fade {}",
+            log.info("Sent short-outage recovery to {} (temp={}, fade={})",
                     device.getRefName(), RECOVERY_TEMP, RECOVERY_FADE);
             notifications.send("SunsetService recovery succeeded",
                     "SunsetService set " + device.getRefName() + " to temp " + RECOVERY_TEMP + ", fade " + RECOVERY_FADE + ".");
@@ -249,7 +249,7 @@ public class SunsetService {
         try {
             String payload = payloadBuilder.build(new DeviceCommand(device.getRefName(), "off", List.of()));
             udpClient.send(device.getRefName(), payload);
-            log.info("Sent nightly off to {} ({})", device.getRefName(), reason);
+            log.info("Sent nightly off to {} (reason: {})", device.getRefName(), reason);
             notifications.send("SunsetService off succeeded",
                     "SunsetService confirmed " + device.getRefName() + " is off.");
         } catch (Exception e) {

@@ -29,7 +29,7 @@ public class NtfyNotificationService {
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception e) {
-            log.warn("Failed to send ntfy notification '{}': {}", title, e.getMessage());
+            log.warn("Failed to send ntfy notification '{}' : {}", title, e.getMessage());
         }
     }
 }

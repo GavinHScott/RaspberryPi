@@ -53,7 +53,7 @@ public class SunriseService {
 
     @PostConstruct
     public void logStartup() {
-        log.info("SunriseService loaded. Active sunrise scheduler thread pool size is 2.");
+        log.info("Sunrise service started with scheduler pool size 2.");
     }
 
     /**
@@ -66,22 +66,22 @@ public class SunriseService {
      * @param minutes total duration of the sunrise
      */
     public void start(String refName, int minutes) {
-        log.info("SunriseService start requested for {} over {} minutes", refName, minutes);
+        log.info("Start sunrise for {} over {} minutes", refName, minutes);
         SmartDevice device = registry.getByRefName(refName);
         if (device == null) {
-            log.error("Device {} not found, aborting sunrise.", refName);
+            log.error("Cannot start sunrise: device '{}' not found.", refName);
             notifications.send("SunriseService failed to start", "Bulb not found: " + refName);
             return;
         }
 
-        log.info("SunriseService found {} ({}) at {}; pinging before start",
+        log.info("Found device {} ({}) at {}; pinging before starting sunrise",
                 device.getRefName(), device.getName(), device.getInetAddress().getHostAddress());
         if (!udpClient.ping(refName)) {
             log.error("Ping failed for {}, aborting sunrise.", refName);
             notifications.send("SunriseService failed to start", refName + " was found but did not respond to ping.");
             return;
         }
-        log.info("SunriseService ping succeeded for {}", refName);
+        log.info("Ping succeeded for {}", refName);
 
         cancel(refName);
 
@@ -92,13 +92,13 @@ public class SunriseService {
 
         notifications.send("SunriseService started",
                 "SunriseService found and connected to " + refName + ". Running for " + minutes + " minutes.");
-        log.info("SunriseService scheduling {} second sunrise for {}", totalSeconds, refName);
+        log.info("Scheduled sunrise for {} lasting {} seconds", refName, totalSeconds);
 
         ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(() -> {
             try {
                 if (elapsed[0] > totalSeconds) {
                     String status = stepFailed.get() ? "finished with errors" : "completed successfully";
-                    log.info("SunriseService {} for {}. Final transition: {}",
+                    log.info("Sunrise {} for {}. Final transition value: {}",
                             status, refName, lastTransition[0]);
                     notifications.send("SunriseService finished",
                             "SunriseService " + status + " for " + refName + ". Final transition: " + lastTransition[0] + ".");
@@ -117,13 +117,13 @@ public class SunriseService {
                     udpClient.send(refName, payload);
                     lastTransition[0] = transitionValue;
                     if (elapsed[0] == 0 || elapsed[0] % 300 == 0 || transitionValue == 100) {
-                        log.info("SunriseService progress for {}: elapsed={}s/{}s transition={}",
+                        log.info("Sunrise progress for {}: elapsed={}s/{}s transition={}",
                                 refName, elapsed[0], totalSeconds, transitionValue);
                     }
                 }
             } catch (Exception e) {
                 stepFailed.set(true);
-                log.error("SunriseService step failed for {} at elapsed {}s: {}", refName, elapsed[0], e.getMessage());
+                log.error("Sunrise step failed for {} at elapsed {}s: {}", refName, elapsed[0], e.getMessage());
             } finally {
                 elapsed[0]++;
             }
@@ -139,13 +139,13 @@ public class SunriseService {
         ScheduledFuture<?> existing = activeSunrises.remove(refName);
         if (existing != null) {
             existing.cancel(false);
-            log.info("SunriseService cancelled active sunrise for {}", refName);
+            log.info("Cancelled active sunrise for {}", refName);
         }
     }
 
     @PreDestroy
     public void shutdown() {
-        log.info("SunriseService shutting down scheduler");
+        log.info("Shutting down sunrise scheduler");
         scheduler.shutdownNow();
     }
 }
