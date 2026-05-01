@@ -70,7 +70,7 @@ public class SunriseService {
         SmartDevice device = registry.getByRefName(refName);
         if (device == null) {
             log.error("Cannot start sunrise: device '{}' not found.", refName);
-            notifications.send("SunriseService failed to start", "Bulb not found: " + refName);
+            notifications.send("Sunrise start failed", "Bulb not found: " + refName);
             return;
         }
 
@@ -78,7 +78,7 @@ public class SunriseService {
                 device.getRefName(), device.getName(), device.getInetAddress().getHostAddress());
         if (!udpClient.ping(refName)) {
             log.error("Ping failed for {}, aborting sunrise.", refName);
-            notifications.send("SunriseService failed to start", refName + " was found but did not respond to ping.");
+            notifications.send("Sunrise start failed", refName + " was found but did not respond to ping.");
             return;
         }
         log.info("Ping succeeded for {}", refName);
@@ -90,8 +90,8 @@ public class SunriseService {
         int[] lastTransition = {-1};
         AtomicBoolean stepFailed = new AtomicBoolean(false);
 
-        notifications.send("SunriseService started",
-                "SunriseService found and connected to " + refName + ". Running for " + minutes + " minutes.");
+        notifications.send("Sunrise started",
+                "Sunrise found and connected to " + refName + ". Running for " + minutes + " minutes.");
         log.info("Scheduled sunrise for {} lasting {} seconds", refName, totalSeconds);
 
         ScheduledFuture<?> future = scheduler.scheduleAtFixedRate(() -> {
@@ -100,8 +100,8 @@ public class SunriseService {
                     String status = stepFailed.get() ? "finished with errors" : "completed successfully";
                     log.info("Sunrise {} for {}. Final transition value: {}",
                             status, refName, lastTransition[0]);
-                    notifications.send("SunriseService finished",
-                            "SunriseService " + status + " for " + refName + ". Final transition: " + lastTransition[0] + ".");
+                    notifications.send("Sunrise finished",
+                            "Sunrise " + status + " for " + refName + ". Final transition: " + lastTransition[0] + ".");
                     cancel(refName);
                     return;
                 }

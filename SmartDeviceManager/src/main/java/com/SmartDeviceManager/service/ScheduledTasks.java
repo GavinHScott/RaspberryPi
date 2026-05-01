@@ -22,15 +22,15 @@ public class ScheduledTasks {
     @Scheduled(cron = "0 0 6 * * *")
     public void morningAlarm() {
         log.info("Morning alarm triggered; executing command: {}", MORNING_ALARM_COMMAND);
-        notifications.send("ScheduledTasks morning sunrise triggered",
-                "ScheduledTasks started command: " + MORNING_ALARM_COMMAND);
+        notifications.send("Morning alarm triggered",
+                "Started morning alarm command: " + MORNING_ALARM_COMMAND);
         try {
             commandParser.parseAndExecute(MORNING_ALARM_COMMAND);
             log.info("Morning alarm command dispatched successfully.");
         } catch (Exception e) {
             log.error("Morning alarm failed: {}", e.getMessage());
-            notifications.send("ScheduledTasks morning sunrise failed",
-                    "ScheduledTasks command failed: " + e.getMessage().strip());
+            notifications.send("Morning alarm failed",
+                    "Morning alarm command failed: " + e.getMessage().strip());
         }
     }
 }

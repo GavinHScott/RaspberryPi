@@ -85,8 +85,8 @@ public class SunsetService {
             runSunsetChecks("startup");
         } catch (Exception e) {
             log.error("Sunset startup check failed: {}", e.getMessage(), e);
-            notifications.send("SunsetService startup check failed",
-                    "SunsetService startup check failed: " + e.getMessage());
+            notifications.send("Sunset startup check failed",
+                    "Sunset startup check failed: " + e.getMessage());
         }
     }
 
@@ -96,8 +96,8 @@ public class SunsetService {
             runSunsetChecks("scheduler");
         } catch (Exception e) {
             log.error("Sunset scheduled check failed: {}", e.getMessage(), e);
-            notifications.send("SunsetService scheduled check failed",
-                    "SunsetService scheduled check failed: " + e.getMessage());
+            notifications.send("Sunset scheduled check failed",
+                    "Sunset scheduled check failed: " + e.getMessage());
         }
     }
 
@@ -227,35 +227,35 @@ public class SunsetService {
     }
 
     private void sendShortOutageRecovery(SmartDevice device) {
-        notifications.send("SunsetService recovery started",
-                "SunsetService sending short-outage recovery to " + device.getRefName() + ".");
+        notifications.send("Short-outage recovery started",
+                "Sending short-outage recovery to " + device.getRefName() + ".");
         try {
             String payload = payloadBuilder.buildTempFade(RECOVERY_FADE, RECOVERY_TEMP);
             udpClient.send(device.getRefName(), payload);
             log.info("Sent short-outage recovery to {} (temp={}, fade={})",
                     device.getRefName(), RECOVERY_TEMP, RECOVERY_FADE);
-            notifications.send("SunsetService recovery succeeded",
-                    "SunsetService set " + device.getRefName() + " to temp " + RECOVERY_TEMP + ", fade " + RECOVERY_FADE + ".");
+            notifications.send("Short-outage recovery succeeded",
+                    device.getRefName() + " set to temp " + RECOVERY_TEMP + " and fade " + RECOVERY_FADE + ".");
         } catch (Exception e) {
             log.error("Short-outage recovery failed for {}: {}", device.getRefName(), e.getMessage());
-            notifications.send("SunsetService recovery failed",
-                    "SunsetService failed for " + device.getRefName() + ": " + e.getMessage());
+            notifications.send("Short-outage recovery failed",
+                    "Short-outage recovery failed for " + device.getRefName() + ": " + e.getMessage());
         }
     }
 
     private void sendNightlyOff(SmartDevice device, String reason) {
-        notifications.send("SunsetService off started",
-                "SunsetService sending nightly off to " + device.getRefName() + " (" + reason + ").");
+        notifications.send("Nightly off started",
+                "Sending nightly off to " + device.getRefName() + " (" + reason + ").");
         try {
             String payload = payloadBuilder.build(new DeviceCommand(device.getRefName(), "off", List.of()));
             udpClient.send(device.getRefName(), payload);
             log.info("Sent nightly off to {} (reason: {})", device.getRefName(), reason);
-            notifications.send("SunsetService off succeeded",
-                    "SunsetService confirmed " + device.getRefName() + " is off.");
+            notifications.send("Nightly off succeeded",
+                    device.getRefName() + " confirmed off.");
         } catch (Exception e) {
             log.error("Nightly off failed for {}: {}", device.getRefName(), e.getMessage());
-            notifications.send("SunsetService off failed",
-                    "SunsetService failed for " + device.getRefName() + ": " + e.getMessage());
+            notifications.send("Nightly off failed",
+                    "Nightly off failed for " + device.getRefName() + ": " + e.getMessage());
         }
     }
 
