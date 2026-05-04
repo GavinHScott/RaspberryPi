@@ -7,11 +7,11 @@
     </appender>
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/smart-device-manager.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- Roll daily, keep 7 days, auto-delete older files -->
-            <fileNamePattern>logs/smart-device-manager.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <!-- Use the date in the active file name and roll to the next file at local midnight. -->
+            <fileNamePattern>logs/smart-device-manager-%d{dd-MM-yyyy}.log</fileNamePattern>
             <maxHistory>7</maxHistory>
+            <cleanHistoryOnStart>true</cleanHistoryOnStart>
         </rollingPolicy>
         <encoder>
             <pattern>%d{HH:mm:ss dd/MM/yy} | %-5level | %logger{36} | %msg%n</pattern>
