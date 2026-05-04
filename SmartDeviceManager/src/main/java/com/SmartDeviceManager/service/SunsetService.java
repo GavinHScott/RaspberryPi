@@ -35,8 +35,8 @@ public class SunsetService {
     private static final LocalTime DETECTION_START = LocalTime.of(21, 0);
     private static final LocalTime DETECTION_END = LocalTime.MIDNIGHT;
     private static final Duration SHORT_OUTAGE_THRESHOLD = Duration.ofSeconds(10);
-    private static final int RECOVERY_FADE = 80;
-    private static final int RECOVERY_TEMP = 50;
+    private static final int OVERRIDE_BRIGHTNESS = 80;
+    private static final int OVERRIDE_TEMPERATURE = 50;
 
     private final DeviceRegistry registry;
     private final DeviceHealthService deviceHealthService;
@@ -165,8 +165,11 @@ public class SunsetService {
 
             boolean wasObservedCycle = Boolean.TRUE.equals(observedOfflineCycle.remove(device.getRefName()));
             if (wasObservedCycle && outageDuration.compareTo(SHORT_OUTAGE_THRESHOLD) < 0) {
-                sendShortOutageRecovery(device);
+                log.info("Short outage detected for {} ({}ms < {}ms threshold). Applying full brightness override.",
+                        device.getRefName(), outageDuration.toMillis(), SHORT_OUTAGE_THRESHOLD.toMillis());
+                applyFullBrightnessOverride(device);
             } else {
+                log.info("Extended or unobserved outage for {}. Sending nightly off command.", device.getRefName());
                 sendNightlyOff(device, "online after extended or unobserved outage");
             }
         }
@@ -226,20 +229,22 @@ public class SunsetService {
         deviceHealthService.stopMonitoring();
     }
 
-    private void sendShortOutageRecovery(SmartDevice device) {
-        notifications.send("Short-outage recovery started",
-                "Sending short-outage recovery to " + device.getRefName() + ".");
+    private void applyFullBrightnessOverride(SmartDevice device) {
+        notifications.send("Full brightness override started",
+                "Sending full brightness override to " + device.getRefName() + ".");
         try {
-            String payload = payloadBuilder.buildTempFade(RECOVERY_FADE, RECOVERY_TEMP);
+            log.debug("Building full brightness override payload: brightness={}, temperature={}", 
+                    OVERRIDE_BRIGHTNESS, OVERRIDE_TEMPERATURE);
+            String payload = payloadBuilder.buildTempFade(OVERRIDE_BRIGHTNESS, OVERRIDE_TEMPERATURE);
             udpClient.send(device.getRefName(), payload);
-            log.info("Sent short-outage recovery to {} (temp={}, fade={})",
-                    device.getRefName(), RECOVERY_TEMP, RECOVERY_FADE);
-            notifications.send("Short-outage recovery succeeded",
-                    device.getRefName() + " set to temp " + RECOVERY_TEMP + " and fade " + RECOVERY_FADE + ".");
+            log.info("Sent full brightness override to {} (brightness={}%, temperature={}K)",
+                    device.getRefName(), OVERRIDE_BRIGHTNESS, OVERRIDE_TEMPERATURE);
+            notifications.send("Full brightness override succeeded",
+                    device.getRefName() + " set to brightness " + OVERRIDE_BRIGHTNESS + "% and temperature " + OVERRIDE_TEMPERATURE + "K.");
         } catch (Exception e) {
-            log.error("Short-outage recovery failed for {}: {}", device.getRefName(), e.getMessage());
-            notifications.send("Short-outage recovery failed",
-                    "Short-outage recovery failed for " + device.getRefName() + ": " + e.getMessage());
+            log.error("Full brightness override failed for {}: {}", device.getRefName(), e.getMessage());
+            notifications.send("Full brightness override failed",
+                    "Full brightness override failed for " + device.getRefName() + ": " + e.getMessage());
         }
     }
 
