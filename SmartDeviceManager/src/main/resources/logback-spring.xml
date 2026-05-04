@@ -1,18 +1,16 @@
 <configuration>
 
+    <timestamp key="startupDate" datePattern="dd-MM-yyyy" timeReference="contextBirth" />
+
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{HH:mm:ss dd/MM/yy} | %-5level | %logger{36} | %msg%n</pattern>
         </encoder>
     </appender>
 
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <!-- Use the date in the active file name and roll to the next file at local midnight. -->
-            <fileNamePattern>logs/smart-device-manager-%d{dd-MM-yyyy}.log</fileNamePattern>
-            <maxHistory>7</maxHistory>
-            <cleanHistoryOnStart>true</cleanHistoryOnStart>
-        </rollingPolicy>
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+        <file>logs/smart-device-manager-${startupDate}.log</file>
+        <append>true</append>
         <encoder>
             <pattern>%d{HH:mm:ss dd/MM/yy} | %-5level | %logger{36} | %msg%n</pattern>
         </encoder>
