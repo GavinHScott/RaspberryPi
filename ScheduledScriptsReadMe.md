@@ -57,18 +57,39 @@ It runs:
 
 ## Scheduled Behaviour
 
-Scheduled OS behaviour is controlled by cron.
+Scheduled OS behaviour is controlled by systemd timers in:
 
-The midnight schedule is installed in:
+```text
+/etc/systemd/system/
+```
+
+The daily graceful reboot schedule uses:
+
+```text
+/etc/systemd/system/smartdevicemanager-midnight-reboot.service
+/etc/systemd/system/smartdevicemanager-midnight-reboot.timer
+```
+
+`smartdevicemanager-midnight-reboot.timer` runs daily at 00:01 local time with `Persistent=true`.
+
+`smartdevicemanager-midnight-reboot.service` is a one-shot service that:
+
+1. Stops `smartdevicemanager.service`.
+2. Waits 5 seconds so the Logback startup-dated log file closes cleanly.
+3. Reboots the Raspberry Pi.
+
+SmartDeviceManager writes to a log file named from the date the application process started:
+
+```text
+/home/gavinsco/apps/SmartDeviceManager/logs/smart-device-manager-DD-MM-YYYY.log
+```
+
+The application does not roll to a new dated file at midnight. If the process started on one day and runs past midnight, it continues writing to the original startup date's file until systemd stops it. After the 00:01 reboot, the boot-time service start creates or appends to the new day's log file.
+
+The old cron reboot file has been removed and should not be recreated:
 
 ```text
 /etc/cron.d/smartdevicemanager-midnight-reboot
-```
-
-It reboots the device every day at midnight:
-
-```text
-0 0 * * * root /usr/sbin/reboot
 ```
 
 The user crontab should not run SmartDeviceManager update scripts. The old scheduled update script has been removed.
