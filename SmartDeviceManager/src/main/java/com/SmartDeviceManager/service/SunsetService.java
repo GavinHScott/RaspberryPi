@@ -1,7 +1,7 @@
 package com.SmartDeviceManager.service;
 
 import java.time.Clock;
-import java.time.Duration;
+// import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
@@ -47,7 +47,7 @@ public class SunsetService {
     private final ExecutorService pingExecutor;
     private final Map<String, Boolean> lastKnownOnline = new ConcurrentHashMap<>();
     private final Map<String, Instant> offlineSince = new ConcurrentHashMap<>();
-    private final Map<String, Boolean> observedOfflineCycle = new ConcurrentHashMap<>();
+    // private final Map<String, Boolean> observedOfflineCycle = new ConcurrentHashMap<>();
     private volatile boolean monitoringWindowOpen;
     private volatile boolean firstSchedulerRunLogged;
     private volatile boolean waitingForWindowLogged;
@@ -141,7 +141,7 @@ public class SunsetService {
         if (previousOnline == null) {
             if (!online) {
                 offlineSince.put(device.getRefName(), checkedAt);
-                observedOfflineCycle.put(device.getRefName(), false);
+                // observedOfflineCycle.put(device.getRefName(), false);
                 log.warn("First sunset check: {} is offline", device.getRefName());
             } else {
                 log.info("First sunset check: {} is online; sending nightly off", device.getRefName());
@@ -152,19 +152,18 @@ public class SunsetService {
 
         if (previousOnline && !online) {
             offlineSince.put(device.getRefName(), checkedAt);
-            observedOfflineCycle.put(device.getRefName(), true);
+            // observedOfflineCycle.put(device.getRefName(), true);
             log.warn("Device {} switched offline", device.getRefName());
             return;
         }
 
         if (!previousOnline && online) {
+            /*
             Instant wentOfflineAt = offlineSince.remove(device.getRefName());
             Duration outageDuration = wentOfflineAt == null ? Duration.ZERO : Duration.between(wentOfflineAt, checkedAt);
             log.info("Device {} switched online after {} ms offline",
                     device.getRefName(), outageDuration.toMillis());
 
-            observedOfflineCycle.remove(device.getRefName());
-            /*
             boolean wasObservedCycle = Boolean.TRUE.equals(observedOfflineCycle.remove(device.getRefName()));
             if (wasObservedCycle && outageDuration.compareTo(SHORT_OUTAGE_THRESHOLD) < 0) {
                 log.info("Short outage detected for {} ({}ms < {}ms threshold). Applying full brightness override.",
@@ -172,8 +171,9 @@ public class SunsetService {
                 applyFullBrightnessOverride(device);
             } else {
             */
-            log.info("Device {} came back online. Sending nightly off command.", device.getRefName());
-            sendNightlyOff(device, "online after outage");
+            offlineSince.remove(device.getRefName());
+            log.info("Device {} came back online during sunset monitoring. Sending off only.", device.getRefName());
+            sendNightlyOff(device, "online during sunset monitoring");
             // }
         }
     }
@@ -194,7 +194,7 @@ public class SunsetService {
     private void clearState() {
         lastKnownOnline.clear();
         offlineSince.clear();
-        observedOfflineCycle.clear();
+        // observedOfflineCycle.clear();
     }
 
     private String describeDevices(List<SmartDevice> devices) {
