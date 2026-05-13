@@ -34,9 +34,9 @@ public class SunsetService {
     private static final Logger log = LoggerFactory.getLogger(SunsetService.class);
     private static final LocalTime DETECTION_START = LocalTime.of(21, 0);
     private static final LocalTime DETECTION_END = LocalTime.MIDNIGHT;
-    private static final Duration SHORT_OUTAGE_THRESHOLD = Duration.ofSeconds(10);
-    private static final int OVERRIDE_BRIGHTNESS = 80;
-    private static final int OVERRIDE_TEMPERATURE = 50;
+    // private static final Duration SHORT_OUTAGE_THRESHOLD = Duration.ofSeconds(10);
+    // private static final int OVERRIDE_BRIGHTNESS = 80;
+    // private static final int OVERRIDE_TEMPERATURE = 50;
 
     private final DeviceRegistry registry;
     private final DeviceHealthService deviceHealthService;
@@ -163,15 +163,18 @@ public class SunsetService {
             log.info("Device {} switched online after {} ms offline",
                     device.getRefName(), outageDuration.toMillis());
 
+            observedOfflineCycle.remove(device.getRefName());
+            /*
             boolean wasObservedCycle = Boolean.TRUE.equals(observedOfflineCycle.remove(device.getRefName()));
             if (wasObservedCycle && outageDuration.compareTo(SHORT_OUTAGE_THRESHOLD) < 0) {
                 log.info("Short outage detected for {} ({}ms < {}ms threshold). Applying full brightness override.",
                         device.getRefName(), outageDuration.toMillis(), SHORT_OUTAGE_THRESHOLD.toMillis());
                 applyFullBrightnessOverride(device);
             } else {
-                log.info("Extended or unobserved outage for {}. Sending nightly off command.", device.getRefName());
-                sendNightlyOff(device, "online after extended or unobserved outage");
-            }
+            */
+            log.info("Device {} came back online. Sending nightly off command.", device.getRefName());
+            sendNightlyOff(device, "online after outage");
+            // }
         }
     }
 
@@ -229,11 +232,12 @@ public class SunsetService {
         deviceHealthService.stopMonitoring();
     }
 
+    /*
     private void applyFullBrightnessOverride(SmartDevice device) {
         notifications.send("Full brightness override started",
                 "Sending full brightness override to " + device.getRefName() + ".");
         try {
-            log.debug("Building full brightness override payload: brightness={}, temperature={}", 
+            log.debug("Building full brightness override payload: brightness={}, temperature={}",
                     OVERRIDE_BRIGHTNESS, OVERRIDE_TEMPERATURE);
             String payload = payloadBuilder.buildTempFade(OVERRIDE_BRIGHTNESS, OVERRIDE_TEMPERATURE);
             udpClient.send(device.getRefName(), payload);
@@ -247,6 +251,7 @@ public class SunsetService {
                     "Full brightness override failed for " + device.getRefName() + ": " + e.getMessage());
         }
     }
+    */
 
     private void sendNightlyOff(SmartDevice device, String reason) {
         notifications.send("Nightly off started",
