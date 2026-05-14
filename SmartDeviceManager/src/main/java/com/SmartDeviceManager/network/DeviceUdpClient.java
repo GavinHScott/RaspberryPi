@@ -25,15 +25,23 @@ public class DeviceUdpClient {
     }
 
     public void send(String refName, String json) throws Exception {
+        sendForResponse(refName, json);
+    }
+
+    public String sendForResponse(String refName, String json) throws Exception {
         SmartDevice device = registry.getByRefName(refName);
         if (device == null) {
             throw new Exception("Device not found: " + refName);
         }
 
-        sendUdp(json, device.getInetAddress());
+        return sendUdp(json, device.getInetAddress());
     }
 
-    private void sendUdp(String json, InetAddress address) throws Exception {
+    public String getState(String refName) throws Exception {
+        return sendForResponse(refName, "{\"method\":\"getPilot\",\"params\":{}}");
+    }
+
+    private String sendUdp(String json, InetAddress address) throws Exception {
         byte[] data = json.getBytes();
         try (DatagramSocket socket = new DatagramSocket()) {
             socket.setSoTimeout(SEND_TIMEOUT_MS);
@@ -49,6 +57,7 @@ public class DeviceUdpClient {
             } catch (JsonSyntaxException e) {
                 throw new Exception("Device returned invalid JSON: " + responseJson, e);
             }
+            return responseJson;
         }
     }
 
