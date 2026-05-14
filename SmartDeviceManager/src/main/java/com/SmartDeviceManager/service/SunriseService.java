@@ -23,7 +23,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 
 /**
- * Manages sunrise sequences: fade and temperature ramp from 0→100 over N minutes.
+ * Manages sunrise sequences: transition ramp from 1 to 100 over N minutes.
  * Sends one combined UDP packet per second, only when values change.
  * Uses a logarithmic curve so the bulb stays dim longer before brightening rapidly,
  * mimicking a natural sunrise.
@@ -33,7 +33,7 @@ public class SunriseService {
 
     private static final Logger log = LoggerFactory.getLogger(SunriseService.class);
     private static final double CURVE_EXPONENT = 2.5;
-    private static final int MIN_VISIBLE_TRANSITION = 11;
+    private static final int MIN_VISIBLE_TRANSITION = 1;
 
     private final DeviceUdpClient udpClient;
     private final PayloadBuilder payloadBuilder;
