@@ -34,6 +34,9 @@ public class SunriseService {
     private static final Logger log = LoggerFactory.getLogger(SunriseService.class);
     private static final double CURVE_EXPONENT = 2.5;
     private static final int MIN_VISIBLE_TRANSITION = 1;
+    private static final int PING_ATTEMPTS_PER_BATCH = 6;
+    private static final long PING_RETRY_DELAY_SECONDS = 1;
+    private static final long PING_BATCH_DELAY_SECONDS = 10;
 
     private final DeviceUdpClient udpClient;
     private final PayloadBuilder payloadBuilder;
@@ -76,7 +79,7 @@ public class SunriseService {
 
         log.info("Found device {} ({}) at {}; pinging before starting sunrise",
                 device.getRefName(), device.getName(), device.getInetAddress().getHostAddress());
-        if (!udpClient.ping(refName)) {
+        if (!pingBeforeStart(refName)) {
             log.error("Ping failed for {}, aborting sunrise.", refName);
             notifications.send("Sunrise start failed", refName + " was found but did not respond to ping.");
             return;
@@ -130,6 +133,43 @@ public class SunriseService {
         }, 0, 1, TimeUnit.SECONDS);
 
         activeSunrises.put(refName, future);
+    }
+
+    private boolean pingBeforeStart(String refName) {
+        for (int batch = 1; batch <= 2; batch++) {
+            for (int attempt = 1; attempt <= PING_ATTEMPTS_PER_BATCH; attempt++) {
+                int overallAttempt = ((batch - 1) * PING_ATTEMPTS_PER_BATCH) + attempt;
+                log.info("Sunrise pre-start ping attempt {} for {}", overallAttempt, refName);
+                if (udpClient.ping(refName)) {
+                    return true;
+                }
+
+                if (attempt < PING_ATTEMPTS_PER_BATCH && !sleepBeforeNextPing(PING_RETRY_DELAY_SECONDS, refName)) {
+                    return false;
+                }
+            }
+
+            if (batch == 1) {
+                log.info("Sunrise pre-start ping batch 1 failed for {}; waiting {} seconds before retrying",
+                        refName, PING_BATCH_DELAY_SECONDS);
+                if (!sleepBeforeNextPing(PING_BATCH_DELAY_SECONDS, refName)) {
+                    return false;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private boolean sleepBeforeNextPing(long seconds, String refName) {
+        try {
+            TimeUnit.SECONDS.sleep(seconds);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted while waiting to retry sunrise ping for {}", refName);
+            return false;
+        }
     }
 
     /**
