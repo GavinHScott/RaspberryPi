@@ -12,7 +12,7 @@ The application directory inside the repository is:
 /home/gavinsco/apps/SmartDeviceManager
 ```
 
-The companion static UI directory is:
+The companion React UI directory is:
 
 ```text
 /home/gavinsco/apps/SmartDeviceManagerUI
@@ -82,7 +82,7 @@ It runs:
 /usr/bin/java -jar target/SmartDeviceManager-1.0.0.jar --server.port=9090
 ```
 
-`smartdevicemanager-ui.service` starts the static UI from:
+`smartdevicemanager-ui.service` runs the React preview server from:
 
 ```text
 /home/gavinsco/apps/SmartDeviceManagerUI
@@ -91,7 +91,27 @@ It runs:
 It runs:
 
 ```text
-/usr/bin/python3 -m http.server 9091 --bind 0.0.0.0
+/usr/bin/npm run preview
+```
+
+The React source lives in:
+
+```text
+/home/gavinsco/apps/SmartDeviceManagerUI/src
+```
+
+The boot/update script builds that source with:
+
+```text
+npm ci
+npm run build
+```
+
+If there is no `package-lock.json`, it falls back to:
+
+```text
+npm install
+npm run build
 ```
 
 The UI service is enabled for boot with:
@@ -132,12 +152,12 @@ The daily graceful reboot schedule uses:
 3. Waits 5 seconds so the Logback startup-dated log file closes cleanly.
 4. Reboots the Raspberry Pi.
 
-After the reboot, systemd starts `smartdevicemanager-CheckForUpdates.service` before `smartdevicemanager.service`. That update-check service pulls the latest `main` branch from `/home/gavinsco/apps`. Backend changes are rebuilt with Maven when the commit changes. UI changes do not need a build step because the UI is static files served directly from `/home/gavinsco/apps/SmartDeviceManagerUI`.
+After the reboot, systemd starts `smartdevicemanager-CheckForUpdates.service` before `smartdevicemanager.service`. That update-check service pulls the latest `main` branch from `/home/gavinsco/apps`. Backend changes are rebuilt with Maven when the commit changes. UI source changes are rebuilt with npm/Vite into `/home/gavinsco/apps/SmartDeviceManagerUI/dist`, which is the directory served on port `9091`.
 
 So the midnight path is:
 
 ```text
-00:01 timer -> stop SmartDeviceManager -> UI stops with it -> reboot -> pull latest main -> rebuild backend if needed -> start backend on 9090 -> start UI on 9091
+00:01 timer -> stop SmartDeviceManager -> UI stops with it -> reboot -> pull latest main -> rebuild backend/UI if needed -> start backend on 9090 -> serve built UI on 9091
 ```
 
 SmartDeviceManager writes to a log file named from the date the application process started:
