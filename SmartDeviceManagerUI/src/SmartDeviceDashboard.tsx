@@ -1,25 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const API_PORT = 9090;
 const apiBase = `${window.location.protocol}//${window.location.hostname}:${API_PORT}`;
 const DEFAULT_DEVICE = "bedroomlight";
 
 type StatusTone = "idle" | "busy" | "success" | "error";
-
-type CommandParam = {
-  name: string;
-  type: "range" | "number";
-  min?: number;
-  max?: number;
-  defaultValue?: number;
-  unit?: string;
-};
-
-type DeviceCommand = {
-  name: string;
-  label: string;
-  params: CommandParam[];
-};
+type ControlMode = "rgb" | "temperature" | "transition";
 
 type DeviceInfo = {
   name: string;
@@ -38,78 +24,33 @@ type DeviceState = {
   error?: string;
 };
 
-type ScheduledScript = {
-  name: string;
-  schedule: string;
-  unit: string;
-  script: string;
-  description: string;
-};
-
-type DashboardInfo = {
-  app: {
-    name: string;
-    apiPort: number;
-    uiPort: number;
-    staticIp: string;
-  };
-  scheduledScripts: ScheduledScript[];
-};
-
 type Status = {
   tone: StatusTone;
   text: string;
 };
 
-type CustomValues = {
+type ControlValues = {
   brightness: string;
   temperature: string;
   red: string;
   green: string;
   blue: string;
-  colourMode: boolean;
-  transitionMode: boolean;
   transition: string;
 };
 
-const colourFields: Array<["red" | "green" | "blue", number]> = [
-  ["red", 255],
-  ["green", 255],
-  ["blue", 255],
-];
+const fallbackValues: ControlValues = {
+  brightness: "50",
+  temperature: "65",
+  red: "255",
+  green: "160",
+  blue: "60",
+  transition: "50",
+};
 
-const fallbackCommands: DeviceCommand[] = [
-  { name: "on", label: "Turn on", params: [] },
-  { name: "off", label: "Turn off", params: [] },
-  {
-    name: "temp",
-    label: "Set white temperature",
-    params: [{ name: "temperature", type: "range", min: 0, max: 100, defaultValue: 65, unit: "%" }],
-  },
-  {
-    name: "fade",
-    label: "Set brightness",
-    params: [{ name: "brightness", type: "range", min: 0, max: 100, defaultValue: 50, unit: "%" }],
-  },
-  {
-    name: "transition",
-    label: "Transition",
-    params: [{ name: "value", type: "range", min: 0, max: 100, defaultValue: 50, unit: "%" }],
-  },
-  {
-    name: "rgb",
-    label: "Set colour",
-    params: [
-      { name: "red", type: "range", min: 0, max: 255, defaultValue: 255 },
-      { name: "green", type: "range", min: 0, max: 255, defaultValue: 160 },
-      { name: "blue", type: "range", min: 0, max: 255, defaultValue: 60 },
-    ],
-  },
-  {
-    name: "sunrise",
-    label: "Start sunrise",
-    params: [{ name: "minutes", type: "number", min: 1, defaultValue: 60, unit: "min" }],
-  },
+const colourFields: Array<["red" | "green" | "blue", string]> = [
+  ["red", "Red"],
+  ["green", "Green"],
+  ["blue", "Blue"],
 ];
 
 function kelvinToPercent(value: unknown) {
@@ -118,99 +59,75 @@ function kelvinToPercent(value: unknown) {
   return String(Math.max(0, Math.min(100, percent)));
 }
 
-function valueFromState(commandName: string, param: CommandParam, state?: Record<string, unknown>) {
-  if (!state) return String(param.defaultValue ?? param.min ?? "");
-
-  if (commandName === "temp") return kelvinToPercent(state.temp);
-  if (commandName === "fade") return String(state.dimming ?? param.defaultValue ?? "");
-  if (commandName === "transition") return String(state.dimming ?? param.defaultValue ?? "");
-  if (commandName === "rgb") {
-    const keyByParam: Record<string, string> = { red: "r", green: "g", blue: "b" };
-    return String(state[keyByParam[param.name]] ?? param.defaultValue ?? "");
-  }
-
-  return String(param.defaultValue ?? param.min ?? "");
+function numberString(value: unknown, fallback: string) {
+  return typeof value === "number" ? String(Math.round(value)) : fallback;
 }
 
-function valuesFromState(command: DeviceCommand | undefined, state?: Record<string, unknown>) {
-  if (!command) return {};
-
-  return Object.fromEntries(
-    command.params.map((param) => [param.name, valueFromState(command.name, param, state)]),
-  );
-}
-
-function commandFromState(commands: DeviceCommand[], state?: Record<string, unknown>) {
-  if (!state) return commands[0]?.name ?? "on";
-  if (state.state === false) return "off";
+function modeFromState(state?: Record<string, unknown>): ControlMode {
+  if (!state) return "temperature";
   if (typeof state.r === "number" || typeof state.g === "number" || typeof state.b === "number") return "rgb";
-  if (typeof state.temp === "number") return "temp";
-  if (typeof state.dimming === "number") return "fade";
-  return "on";
+  if (typeof state.temp === "number") return "temperature";
+  return "temperature";
 }
 
-function customValuesFromState(state?: Record<string, unknown>): CustomValues {
+function valuesFromState(state?: Record<string, unknown>): ControlValues {
   return {
-    brightness: String(state?.dimming ?? 50),
-    temperature: kelvinToPercent(state?.temp) || "65",
-    red: String(state?.r ?? 255),
-    green: String(state?.g ?? 160),
-    blue: String(state?.b ?? 60),
-    colourMode: typeof state?.r === "number" || typeof state?.g === "number" || typeof state?.b === "number",
-    transitionMode: false,
-    transition: String(state?.dimming ?? 50),
+    brightness: numberString(state?.dimming, fallbackValues.brightness),
+    temperature: kelvinToPercent(state?.temp) || fallbackValues.temperature,
+    red: numberString(state?.r, fallbackValues.red),
+    green: numberString(state?.g, fallbackValues.green),
+    blue: numberString(state?.b, fallbackValues.blue),
+    transition: numberString(state?.dimming, fallbackValues.transition),
   };
+}
+
+function powerFromState(state?: Record<string, unknown>) {
+  return state?.state !== false;
 }
 
 export function SmartDeviceDashboard() {
   const [devices, setDevices] = useState<string[]>([]);
   const [deviceDetails, setDeviceDetails] = useState<DeviceInfo[]>([]);
   const [deviceStates, setDeviceStates] = useState<DeviceState[]>([]);
-  const [dashboardInfo, setDashboardInfo] = useState<DashboardInfo | null>(null);
-  const [commands, setCommands] = useState<DeviceCommand[]>(fallbackCommands);
   const [selectedDevice, setSelectedDevice] = useState("");
-  const [selectedCommand, setSelectedCommand] = useState("on");
-  const [values, setValues] = useState<Record<string, string>>({});
-  const [customValues, setCustomValues] = useState<CustomValues>(customValuesFromState());
+  const [mode, setMode] = useState<ControlMode>("temperature");
+  const [values, setValues] = useState<ControlValues>(fallbackValues);
+  const [powerOn, setPowerOn] = useState(true);
   const [status, setStatus] = useState<Status>({ tone: "idle", text: "Ready" });
   const [loading, setLoading] = useState(true);
 
-  const command = commands.find((item) => item.name === selectedCommand) ?? commands[0];
   const selectedState = deviceStates.find((item) => item.name === selectedDevice);
   const selectedDetails = deviceDetails.find((item) => item.name === selectedDevice);
+  const isReachable = Boolean(selectedDevice && selectedState?.online);
+  const selectedError = selectedState?.error;
+
+  const deviceLabel = useMemo(() => {
+    if (!selectedDevice) return "No device selected";
+    if (!selectedDetails) return selectedDevice;
+    return `${selectedDetails.name} (${selectedDetails.ip})`;
+  }, [selectedDetails, selectedDevice]);
 
   useEffect(() => {
     Promise.all([
       fetch(`${apiBase}/devices`).then((response) => response.json() as Promise<string[]>),
-      fetch(`${apiBase}/commands`)
-        .then((response) => (response.ok ? (response.json() as Promise<DeviceCommand[]>) : fallbackCommands))
-        .catch(() => fallbackCommands),
       fetch(`${apiBase}/devices/details`)
         .then((response) => (response.ok ? (response.json() as Promise<DeviceInfo[]>) : []))
         .catch(() => []),
       fetch(`${apiBase}/device-states`)
         .then((response) => (response.ok ? (response.json() as Promise<DeviceState[]>) : []))
         .catch(() => []),
-      fetch(`${apiBase}/dashboard-info`)
-        .then((response) => (response.ok ? (response.json() as Promise<DashboardInfo>) : null))
-        .catch(() => null),
     ])
-      .then(([deviceList, commandList, details, states, info]) => {
-        const availableCommands = commandList.length ? commandList : fallbackCommands;
+      .then(([deviceList, details, states]) => {
         const firstDevice = deviceList.includes(DEFAULT_DEVICE) ? DEFAULT_DEVICE : deviceList[0] ?? "";
         const firstState = states.find((item) => item.name === firstDevice)?.state;
-        const firstCommandName = commandFromState(availableCommands, firstState);
-        const firstCommand = availableCommands.find((item) => item.name === firstCommandName) ?? availableCommands[0];
 
         setDevices(deviceList);
         setDeviceDetails(details);
         setDeviceStates(states);
-        setDashboardInfo(info);
-        setCommands(availableCommands);
         setSelectedDevice(firstDevice);
-        setSelectedCommand(firstCommand.name);
-        setValues(valuesFromState(firstCommand, firstState));
-        setCustomValues(customValuesFromState(firstState));
+        setMode(modeFromState(firstState));
+        setValues(valuesFromState(firstState));
+        setPowerOn(powerFromState(firstState));
         setStatus({ tone: "idle", text: deviceList.length ? "Ready" : "No devices returned by the manager" });
       })
       .catch((error: Error) => {
@@ -221,95 +138,80 @@ export function SmartDeviceDashboard() {
 
   function chooseDevice(deviceName: string) {
     const nextState = deviceStates.find((item) => item.name === deviceName)?.state;
-    const nextCommandName = commandFromState(commands, nextState);
-    const nextCommand = commands.find((item) => item.name === nextCommandName) ?? commands[0];
 
     setSelectedDevice(deviceName);
-    setSelectedCommand(nextCommand.name);
-    setValues(valuesFromState(nextCommand, nextState));
-    setCustomValues(customValuesFromState(nextState));
+    setMode(modeFromState(nextState));
+    setValues(valuesFromState(nextState));
+    setPowerOn(powerFromState(nextState));
   }
 
-  function chooseCommand(commandName: string) {
-    const nextCommand = commands.find((item) => item.name === commandName);
-    if (!nextCommand) return;
-
-    const nextValues = commandName === selectedCommand ? values : valuesFromState(nextCommand, selectedState?.state);
-    setSelectedCommand(commandName);
-    setValues(nextValues);
-    sendCommand(nextCommand, nextValues);
-  }
-
-  function updateValue(name: string, value: string) {
+  function updateValue(name: keyof ControlValues, value: string) {
     setValues((current) => ({ ...current, [name]: value }));
   }
 
-  function updateCustomValue(name: keyof CustomValues, value: string | boolean) {
-    setCustomValues((current) => ({ ...current, [name]: value }));
-  }
+  function sendPower(nextPower: boolean) {
+    if (!selectedDevice || !isReachable) return;
 
-  function paramValues(commandToSend: DeviceCommand, sourceValues: Record<string, string>) {
-    return (commandToSend.params ?? []).map((param) =>
-      String(sourceValues[param.name] ?? param.defaultValue ?? param.min ?? ""),
-    );
-  }
-
-  function sendCommand(commandToSend: DeviceCommand, sourceValues = values) {
-    if (!selectedDevice || !commandToSend) {
-      setStatus({ tone: "error", text: "Choose a device and command first" });
-      return;
-    }
-
-    setStatus({ tone: "busy", text: "Sending command..." });
+    setPowerOn(nextPower);
+    setStatus({ tone: "busy", text: nextPower ? "Turning on..." : "Turning off..." });
     fetch(`${apiBase}/command`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: selectedDevice,
-        command: commandToSend.name,
-        params: paramValues(commandToSend, sourceValues),
+        command: nextPower ? "on" : "off",
+        params: [],
       }),
     })
       .then((response) => response.text().then((text) => ({ ok: response.ok, text })))
       .then((result) => {
+        if (!result.ok) setPowerOn(!nextPower);
         setStatus({
           tone: result.ok ? "success" : "error",
-          text: result.ok ? `${commandToSend.label} sent to ${selectedDevice}` : result.text.trim(),
+          text: result.ok ? `${selectedDevice} is ${nextPower ? "on" : "off"}` : result.text.trim(),
         });
       })
-      .catch((error: Error) => setStatus({ tone: "error", text: error.message }));
+      .catch((error: Error) => {
+        setPowerOn(!nextPower);
+        setStatus({ tone: "error", text: error.message });
+      });
   }
 
-  function sendCustomValues() {
-    if (!selectedDevice) {
-      setStatus({ tone: "error", text: "Choose a device first" });
-      return;
-    }
+  function applyValues() {
+    if (!selectedDevice || !isReachable) return;
 
-    setStatus({ tone: "busy", text: "Sending custom values..." });
+    setStatus({ tone: "busy", text: "Applying settings..." });
     fetch(`${apiBase}/custom-command`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name: selectedDevice,
-        brightness: Number(customValues.brightness),
-        temperature: Number(customValues.temperature),
-        red: Number(customValues.red),
-        green: Number(customValues.green),
-        blue: Number(customValues.blue),
-        colourMode: customValues.colourMode,
-        transitionMode: customValues.transitionMode,
-        transition: Number(customValues.transition),
+        brightness: Number(values.brightness),
+        temperature: Number(values.temperature),
+        red: Number(values.red),
+        green: Number(values.green),
+        blue: Number(values.blue),
+        colourMode: mode === "rgb",
+        transitionMode: mode === "transition",
+        transition: Number(values.transition),
       }),
     })
       .then((response) => response.text().then((text) => ({ ok: response.ok, text })))
       .then((result) => {
         setStatus({
           tone: result.ok ? "success" : "error",
-          text: result.ok ? `Custom values sent to ${selectedDevice}` : result.text.trim(),
+          text: result.ok ? `Settings applied to ${selectedDevice}` : result.text.trim(),
         });
       })
       .catch((error: Error) => setStatus({ tone: "error", text: error.message }));
+  }
+
+  function modePanelClass(panelMode: ControlMode) {
+    return panelMode === mode ? "mode-panel active" : "mode-panel disabled";
+  }
+
+  function modeTabClass(tabMode: ControlMode) {
+    return tabMode === mode ? "mode-tab selected" : "mode-tab inactive";
   }
 
   return (
@@ -322,239 +224,165 @@ export function SmartDeviceDashboard() {
         <div className={`status ${status.tone}`}>{status.text}</div>
       </header>
 
-      <div className="control-panel">
+      <main className="simple-dashboard">
         <section className="device-list" aria-label="Devices">
-          {devices.map((device) => (
-            <button
-              type="button"
-              key={device}
-              className={device === selectedDevice ? "device selected" : "device"}
-              onClick={() => chooseDevice(device)}
-            >
-              {device}
-            </button>
-          ))}
+          {devices.map((device) => {
+            const liveState = deviceStates.find((item) => item.name === device);
+            const reachable = liveState?.online;
+
+            return (
+              <button
+                type="button"
+                key={device}
+                className={device === selectedDevice ? "device selected" : "device"}
+                onClick={() => chooseDevice(device)}
+              >
+                <span>{device}</span>
+                <small className={reachable ? "online-text" : "offline-text"}>
+                  {reachable ? "Online" : "Offline"}
+                </small>
+              </button>
+            );
+          })}
           {!loading && devices.length === 0 ? <p className="empty">No devices found</p> : null}
         </section>
 
-        <section className="command-grid" aria-label="Commands">
-          {commands.map((item) => (
-            <button
-              type="button"
-              key={item.name}
-              className={item.name === selectedCommand ? "command selected" : "command"}
-              onClick={() => chooseCommand(item.name)}
-            >
-              <span>{item.label}</span>
-              <small>{item.name}</small>
-            </button>
-          ))}
-        </section>
-
-        <section className="params">
-          <h2>{command ? command.label : "Command"}</h2>
-          {(command.params ?? []).length === 0 ? (
-            <p className="empty">No extra values needed.</p>
-          ) : (
-            command.params.map((param) => (
-              <label className="field" key={param.name}>
-                <span>
-                  {param.name}
-                  {param.unit ? ` (${param.unit})` : ""}
-                </span>
-                <div className="input-row">
-                  <input
-                    type={param.type === "number" ? "number" : "range"}
-                    min={param.min}
-                    max={param.max}
-                    value={values[param.name] ?? param.defaultValue ?? ""}
-                    onChange={(event) => updateValue(param.name, event.target.value)}
-                  />
-                  <input
-                    className="number-entry"
-                    type="number"
-                    min={param.min}
-                    max={param.max}
-                    value={values[param.name] ?? param.defaultValue ?? ""}
-                    onChange={(event) => updateValue(param.name, event.target.value)}
-                  />
-                </div>
-              </label>
-            ))
-          )}
-        </section>
-      </div>
-
-      <section className="custom-panel" aria-label="Custom values">
-        <div className="custom-heading">
-          <div>
-            <h2>Custom values</h2>
-            <p className="empty">Set multiple values, then send them together.</p>
-          </div>
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={customValues.colourMode}
-              disabled={customValues.transitionMode}
-              onChange={(event) => updateCustomValue("colourMode", event.target.checked)}
-            />
-            <span>RGB mode</span>
-          </label>
-          <label className="toggle">
-            <input
-              type="checkbox"
-              checked={customValues.transitionMode}
-              onChange={(event) => updateCustomValue("transitionMode", event.target.checked)}
-            />
-            <span>Transition mode</span>
-          </label>
-        </div>
-
-        <div className="custom-grid">
-          <label className="field">
-            <span>brightness (%)</span>
-            <div className="input-row">
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={customValues.brightness}
-                onChange={(event) => updateCustomValue("brightness", event.target.value)}
-              />
-              <input
-                className="number-entry"
-                type="number"
-                min={0}
-                max={100}
-                value={customValues.brightness}
-                onChange={(event) => updateCustomValue("brightness", event.target.value)}
-              />
+        <section className={isReachable ? "dashboard-card" : "dashboard-card unreachable"}>
+          <div className="device-summary">
+            <div>
+              <p className="eyebrow">Selected device</p>
+              <h2>{deviceLabel}</h2>
+              <p className={isReachable ? "online-text" : "offline-text"}>
+                {isReachable ? "Reachable" : selectedError || "Unreachable"}
+              </p>
             </div>
-          </label>
 
-          <label className="field">
-            <span>temperature (%)</span>
-            <div className="input-row">
+            <label className="power-switch">
               <input
-                type="range"
-                min={0}
-                max={100}
-                value={customValues.temperature}
-                disabled={customValues.colourMode || customValues.transitionMode}
-                onChange={(event) => updateCustomValue("temperature", event.target.value)}
+                type="checkbox"
+                checked={powerOn}
+                disabled={!isReachable}
+                onChange={(event) => sendPower(event.target.checked)}
               />
-              <input
-                className="number-entry"
-                type="number"
-                min={0}
-                max={100}
-                value={customValues.temperature}
-                disabled={customValues.colourMode || customValues.transitionMode}
-                onChange={(event) => updateCustomValue("temperature", event.target.value)}
-              />
-            </div>
-          </label>
-
-          <label className="field">
-            <span>transition (%)</span>
-            <div className="input-row">
-              <input
-                type="range"
-                min={0}
-                max={100}
-                value={customValues.transition}
-                disabled={!customValues.transitionMode}
-                onChange={(event) => updateCustomValue("transition", event.target.value)}
-              />
-              <input
-                className="number-entry"
-                type="number"
-                min={0}
-                max={100}
-                value={customValues.transition}
-                disabled={!customValues.transitionMode}
-                onChange={(event) => updateCustomValue("transition", event.target.value)}
-              />
-            </div>
-          </label>
-
-          {colourFields.map(([name, max]) => (
-            <label className="field" key={name}>
-              <span>{name}</span>
-              <div className="input-row">
-                <input
-                  type="range"
-                  min={0}
-                  max={max}
-                  value={customValues[name]}
-                  disabled={!customValues.colourMode || customValues.transitionMode}
-                  onChange={(event) => updateCustomValue(name, event.target.value)}
-                />
-                <input
-                  className="number-entry"
-                  type="number"
-                  min={0}
-                  max={max}
-                  value={customValues[name]}
-                  disabled={!customValues.colourMode || customValues.transitionMode}
-                  onChange={(event) => updateCustomValue(name, event.target.value)}
-                />
-              </div>
+              <span>{powerOn ? "On" : "Off"}</span>
             </label>
-          ))}
-        </div>
-
-        <button className="custom-send" type="button" onClick={sendCustomValues}>
-          Send custom values
-        </button>
-      </section>
-
-      <section className="info-section" aria-label="Device and schedule information">
-        <article>
-          <h2>Device info</h2>
-          <div className="info-grid">
-            {deviceDetails.map((device) => {
-              const liveState = deviceStates.find((item) => item.name === device.name);
-              return (
-                <div className="info-item" key={device.refName}>
-                  <strong>{device.name}</strong>
-                  <span>{device.refName}</span>
-                  <span>{device.ip}</span>
-                  <span>{liveState?.online ? "Online" : "Offline or unavailable"}</span>
-                  {liveState?.state ? <code>{JSON.stringify(liveState.state)}</code> : null}
-                  {liveState?.error ? <span className="error-text">{liveState.error}</span> : null}
-                </div>
-              );
-            })}
           </div>
-        </article>
 
-        <article>
-          <h2>Scheduled scripts</h2>
-          <div className="info-grid">
-            {(dashboardInfo?.scheduledScripts ?? []).map((script) => (
-              <div className="info-item" key={script.name}>
-                <strong>{script.name}</strong>
-                <span>{script.schedule}</span>
-                <span>{script.unit}</span>
-                <code>{script.script}</code>
-                <span>{script.description}</span>
-              </div>
+          <div className="mode-tabs" aria-label="Control mode">
+            {(["rgb", "temperature", "transition"] as ControlMode[]).map((item) => (
+              <button
+                type="button"
+                key={item}
+                className={modeTabClass(item)}
+                disabled={!isReachable}
+                onClick={() => setMode(item)}
+              >
+                {item === "rgb" ? "RGB" : item[0].toUpperCase() + item.slice(1)}
+              </button>
             ))}
           </div>
-        </article>
 
-        {selectedDetails ? (
-          <article>
-            <h2>Selected device</h2>
-            <div className="selected-summary">
-              <span>{selectedDetails.name}</span>
-              <span>{selectedDetails.ip}</span>
-              <span>{selectedState?.online ? "Live state loaded" : "State unavailable"}</span>
-            </div>
-          </article>
-        ) : null}
-      </section>
+          <div className="slider-stack">
+            <section className={modePanelClass("rgb")} aria-label="RGB sliders">
+              <h2>RGB</h2>
+              {colourFields.map(([name, label]) => (
+                <SliderField
+                  key={name}
+                  label={label}
+                  max={255}
+                  value={values[name]}
+                  disabled={!isReachable || mode !== "rgb"}
+                  onChange={(value) => updateValue(name, value)}
+                />
+              ))}
+            </section>
+
+            <section className={modePanelClass("temperature")} aria-label="Temperature slider">
+              <h2>Temperature</h2>
+              <SliderField
+                label="Temperature"
+                max={100}
+                unit="%"
+                value={values.temperature}
+                disabled={!isReachable || mode !== "temperature"}
+                onChange={(value) => updateValue("temperature", value)}
+              />
+              <SliderField
+                label="Brightness"
+                max={100}
+                unit="%"
+                value={values.brightness}
+                disabled={!isReachable || mode !== "temperature"}
+                onChange={(value) => updateValue("brightness", value)}
+              />
+            </section>
+
+            <section className={modePanelClass("transition")} aria-label="Transition slider">
+              <h2>Transition</h2>
+              <SliderField
+                label="Transition"
+                max={100}
+                unit="%"
+                value={values.transition}
+                disabled={!isReachable || mode !== "transition"}
+                onChange={(value) => updateValue("transition", value)}
+              />
+              <SliderField
+                label="Brightness"
+                max={100}
+                unit="%"
+                value={values.brightness}
+                disabled={!isReachable || mode !== "transition"}
+                onChange={(value) => updateValue("brightness", value)}
+              />
+            </section>
+          </div>
+
+          <button className="custom-send" type="button" disabled={!isReachable} onClick={applyValues}>
+            Apply settings
+          </button>
+        </section>
+      </main>
     </div>
+  );
+}
+
+type SliderFieldProps = {
+  label: string;
+  min?: number;
+  max: number;
+  unit?: string;
+  value: string;
+  disabled: boolean;
+  onChange: (value: string) => void;
+};
+
+function SliderField({ label, min = 0, max, unit, value, disabled, onChange }: SliderFieldProps) {
+  return (
+    <label className="field">
+      <span>
+        {label}
+        {unit ? ` (${unit})` : ""}
+      </span>
+      <div className="input-row">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <input
+          className="number-entry"
+          type="number"
+          min={min}
+          max={max}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+        />
+      </div>
+    </label>
   );
 }
