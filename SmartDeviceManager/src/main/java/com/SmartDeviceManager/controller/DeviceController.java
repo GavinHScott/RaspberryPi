@@ -14,6 +14,8 @@ import com.SmartDeviceManager.model.SmartDevice;
 import com.SmartDeviceManager.network.DeviceUdpClient;
 import com.SmartDeviceManager.registry.DeviceRegistry;
 import com.SmartDeviceManager.service.CommandParser;
+import com.SmartDeviceManager.service.DeviceHealthService;
+import com.SmartDeviceManager.service.SunsetService;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -27,11 +29,16 @@ public class DeviceController {
     private final CommandParser commandParser;
     private final DeviceUdpClient udpClient;
     private final DeviceRegistry registry;
+    private final DeviceHealthService deviceHealthService;
+    private final SunsetService sunsetService;
 
-    public DeviceController(CommandParser commandParser, DeviceUdpClient udpClient, DeviceRegistry registry) {
+    public DeviceController(CommandParser commandParser, DeviceUdpClient udpClient, DeviceRegistry registry,
+                            DeviceHealthService deviceHealthService, SunsetService sunsetService) {
         this.commandParser = commandParser;
         this.udpClient = udpClient;
         this.registry = registry;
+        this.deviceHealthService = deviceHealthService;
+        this.sunsetService = sunsetService;
     }
 
     @GetMapping("/devices")
@@ -47,6 +54,15 @@ public class DeviceController {
         return ResponseEntity.ok(registry.getAll().stream()
                 .map(this::deviceInfo)
                 .toList());
+    }
+
+    @PostMapping("/devices/refresh")
+    public ResponseEntity<List<Map<String, Object>>> refreshDevices() {
+        List<Map<String, Object>> refreshedDevices = registry.getAll().stream()
+                .peek(deviceHealthService::updateDeviceHealth)
+                .map(this::deviceInfo)
+                .toList();
+        return ResponseEntity.ok(refreshedDevices);
     }
 
     @GetMapping("/commands")
@@ -166,6 +182,7 @@ public class DeviceController {
 
         try {
             udpClient.send(device.getRefName(), buildCustomPayload(request));
+            sunsetService.recordManualCommand(device, "custom-command");
             return ResponseEntity.ok("OK");
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -217,11 +234,7 @@ public class DeviceController {
         boolean colourMode = Boolean.TRUE.equals(request.colourMode());
 
         if (transitionMode) {
-            JsonObject transitionParams = buildTransitionParams(clamp(request.transition(), 0, 100, "transition"));
-            if (request.brightness() != null) {
-                transitionParams.addProperty("dimming", clamp(request.brightness(), 0, 100, "brightness"));
-            }
-            params = transitionParams;
+            params = buildTransitionParams(clamp(request.transition(), 0, 100, "transition"));
         } else if (colourMode) {
             params.addProperty("r", clamp(request.red(), 0, 255, "red"));
             params.addProperty("g", clamp(request.green(), 0, 255, "green"));

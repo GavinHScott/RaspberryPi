@@ -19,7 +19,7 @@ public class ScheduledTasks {
         this.notifications = notifications;
     }
 
-    @Scheduled(cron = "30 5 * * 1,2,3,4,5")
+    @Scheduled(cron = "0 30 5 * * MON-FRI")
     public void morningAlarm() {
         log.info("Morning alarm triggered; executing command: {}", MORNING_ALARM_COMMAND);
         notifications.send("Morning alarm triggered",

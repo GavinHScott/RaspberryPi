@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
+import { DeviceSidebar } from "./DeviceSidebar";
 
 const API_PORT = 9090;
-const apiBase = `${window.location.protocol}//${window.location.hostname}:${API_PORT}`;
+const apiBase = `http://${window.location.hostname}:${API_PORT}`;
 const DEFAULT_DEVICE = "bedroomlight";
 
 type StatusTone = "idle" | "busy" | "success" | "error";
@@ -93,8 +94,10 @@ export function SmartDeviceDashboard() {
   const [mode, setMode] = useState<ControlMode>("temperature");
   const [values, setValues] = useState<ControlValues>(fallbackValues);
   const [powerOn, setPowerOn] = useState(true);
+  const [isHeld, setIsHeld] = useState(false);
   const [status, setStatus] = useState<Status>({ tone: "idle", text: "Ready" });
   const [loading, setLoading] = useState(true);
+  const [refreshingDevices, setRefreshingDevices] = useState(false);
 
   const selectedState = deviceStates.find((item) => item.name === selectedDevice);
   const selectedDetails = deviceDetails.find((item) => item.name === selectedDevice);
@@ -145,16 +148,67 @@ export function SmartDeviceDashboard() {
     setPowerOn(powerFromState(nextState));
   }
 
-  function updateValue(name: keyof ControlValues, value: string) {
-    setValues((current) => ({ ...current, [name]: value }));
+  function refreshDevices() {
+    setRefreshingDevices(true);
+    fetch(`${apiBase}/devices/refresh`, { method: "POST" })
+      .then((response) => response.json() as Promise<DeviceInfo[]>)
+      .then((details) => {
+        setDeviceDetails(details);
+        setDeviceStates((currentStates) =>
+          devices.map((deviceName) => {
+            const refreshedDevice = details.find((item) => item.name === deviceName);
+            const currentState = currentStates.find((item) => item.name === deviceName);
+
+            return {
+              name: deviceName,
+              refName: refreshedDevice?.refName ?? currentState?.refName ?? deviceName,
+              online: refreshedDevice?.online ?? currentState?.online ?? false,
+              state: currentState?.state,
+              error: refreshedDevice?.online ? undefined : currentState?.error,
+            };
+          }),
+        );
+      })
+      .catch((error: Error) => {
+        setStatus({ tone: "error", text: error.message });
+      })
+      .finally(() => setRefreshingDevices(false));
   }
 
-  function sendPower(nextPower: boolean) {
-    if (!selectedDevice || !isReachable) return;
+  function buildControlPayload(nextMode: ControlMode, nextValues: ControlValues) {
+    const payload: {
+      name: string;
+      brightness?: number;
+      temperature: number;
+      red: number;
+      green: number;
+      blue: number;
+      colourMode: boolean;
+      transitionMode: boolean;
+      transition: number;
+    } = {
+      name: selectedDevice,
+      temperature: Number(nextValues.temperature),
+      red: Number(nextValues.red),
+      green: Number(nextValues.green),
+      blue: Number(nextValues.blue),
+      colourMode: nextMode === "rgb",
+      transitionMode: nextMode === "transition",
+      transition: Number(nextValues.transition),
+    };
 
-    setPowerOn(nextPower);
+    if (nextMode !== "transition") {
+      payload.brightness = Number(nextValues.brightness);
+    }
+
+    return payload;
+  }
+
+  function sendPowerCommand(nextPower: boolean) {
+    if (!selectedDevice || !isReachable) return Promise.resolve(false);
+
     setStatus({ tone: "busy", text: nextPower ? "Turning on..." : "Turning off..." });
-    fetch(`${apiBase}/command`, {
+    return fetch(`${apiBase}/command`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -165,87 +219,106 @@ export function SmartDeviceDashboard() {
     })
       .then((response) => response.text().then((text) => ({ ok: response.ok, text })))
       .then((result) => {
-        if (!result.ok) setPowerOn(!nextPower);
         setStatus({
           tone: result.ok ? "success" : "error",
           text: result.ok ? `${selectedDevice} is ${nextPower ? "on" : "off"}` : result.text.trim(),
         });
+        return result.ok;
       })
       .catch((error: Error) => {
-        setPowerOn(!nextPower);
         setStatus({ tone: "error", text: error.message });
+        return false;
       });
   }
 
-  function applyValues() {
-    if (!selectedDevice || !isReachable) return;
+  function sendControlValues(nextMode = mode, nextValues = values) {
+    if (!selectedDevice || !isReachable) return Promise.resolve(false);
 
-    setStatus({ tone: "busy", text: "Applying settings..." });
-    fetch(`${apiBase}/custom-command`, {
+    setStatus({ tone: "busy", text: "Updating..." });
+    return fetch(`${apiBase}/custom-command`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: selectedDevice,
-        brightness: Number(values.brightness),
-        temperature: Number(values.temperature),
-        red: Number(values.red),
-        green: Number(values.green),
-        blue: Number(values.blue),
-        colourMode: mode === "rgb",
-        transitionMode: mode === "transition",
-        transition: Number(values.transition),
-      }),
+      body: JSON.stringify(buildControlPayload(nextMode, nextValues)),
     })
       .then((response) => response.text().then((text) => ({ ok: response.ok, text })))
       .then((result) => {
         setStatus({
           tone: result.ok ? "success" : "error",
-          text: result.ok ? `Settings applied to ${selectedDevice}` : result.text.trim(),
+          text: result.ok ? `Updated ${selectedDevice}` : result.text.trim(),
         });
+        return result.ok;
       })
-      .catch((error: Error) => setStatus({ tone: "error", text: error.message }));
+      .catch((error: Error) => {
+        setStatus({ tone: "error", text: error.message });
+        return false;
+      });
+  }
+
+  function updateValue(name: keyof ControlValues, value: string) {
+    const nextValues = { ...values, [name]: value };
+    setValues(nextValues);
+    if (!isHeld) {
+      sendControlValues(mode, nextValues);
+    }
+  }
+
+  function chooseMode(nextMode: ControlMode) {
+    setMode(nextMode);
+    if (!isHeld) {
+      sendControlValues(nextMode, values);
+    }
+  }
+
+  function sendPower(nextPower: boolean) {
+    const previousPower = powerOn;
+    setPowerOn(nextPower);
+
+    if (isHeld) return;
+
+    sendPowerCommand(nextPower).then((ok) => {
+      if (!ok) setPowerOn(previousPower);
+    });
+  }
+
+  function setUpdateMode(updating: boolean) {
+    if (!updating) {
+      setIsHeld(true);
+      return;
+    }
+
+    setIsHeld(false);
+    if (!isReachable) return;
+
+    if (powerOn) {
+      sendControlValues(mode, values);
+    } else {
+      sendPowerCommand(false);
+    }
   }
 
   function modePanelClass(panelMode: ControlMode) {
     return panelMode === mode ? "mode-panel active" : "mode-panel disabled";
   }
 
-  function modeTabClass(tabMode: ControlMode) {
-    return tabMode === mode ? "mode-tab selected" : "mode-tab inactive";
-  }
-
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div>
-          <p className="eyebrow">Port 9091</p>
-          <h1>Smart Device Manager</h1>
-        </div>
-        <div className={`status ${status.tone}`}>{status.text}</div>
-      </header>
+      <DeviceSidebar
+        devices={devices}
+        deviceStates={deviceStates}
+        selectedDevice={selectedDevice}
+        loading={loading}
+        refreshing={refreshingDevices}
+        onSelectDevice={chooseDevice}
+        onRefreshDevices={refreshDevices}
+      />
 
-      <main className="simple-dashboard">
-        <section className="device-list" aria-label="Devices">
-          {devices.map((device) => {
-            const liveState = deviceStates.find((item) => item.name === device);
-            const reachable = liveState?.online;
-
-            return (
-              <button
-                type="button"
-                key={device}
-                className={device === selectedDevice ? "device selected" : "device"}
-                onClick={() => chooseDevice(device)}
-              >
-                <span>{device}</span>
-                <small className={reachable ? "online-text" : "offline-text"}>
-                  {reachable ? "Online" : "Offline"}
-                </small>
-              </button>
-            );
-          })}
-          {!loading && devices.length === 0 ? <p className="empty">No devices found</p> : null}
-        </section>
+      <main className="main-column">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">Port 9091</p>
+            <h1>Smart Device Manager</h1>
+          </div>
+        </header>
 
         <section className={isReachable ? "dashboard-card" : "dashboard-card unreachable"}>
           <div className="device-summary">
@@ -257,34 +330,37 @@ export function SmartDeviceDashboard() {
               </p>
             </div>
 
-            <label className="power-switch">
-              <input
-                type="checkbox"
-                checked={powerOn}
-                disabled={!isReachable}
-                onChange={(event) => sendPower(event.target.checked)}
-              />
-              <span>{powerOn ? "On" : "Off"}</span>
-            </label>
-          </div>
-
-          <div className="mode-tabs" aria-label="Control mode">
-            {(["rgb", "temperature", "transition"] as ControlMode[]).map((item) => (
-              <button
-                type="button"
-                key={item}
-                className={modeTabClass(item)}
-                disabled={!isReachable}
-                onClick={() => setMode(item)}
-              >
-                {item === "rgb" ? "RGB" : item[0].toUpperCase() + item.slice(1)}
-              </button>
-            ))}
+            <div className="top-controls">
+              <label className="power-switch">
+                <input
+                  type="checkbox"
+                  checked={!isHeld}
+                  disabled={!isReachable}
+                  onChange={(event) => setUpdateMode(event.target.checked)}
+                />
+                <span>{isHeld ? "Hold" : "Update"}</span>
+              </label>
+              <label className="power-switch">
+                <input
+                  type="checkbox"
+                  checked={powerOn}
+                  disabled={!isReachable}
+                  onChange={(event) => sendPower(event.target.checked)}
+                />
+                <span>{powerOn ? "On" : "Off"}</span>
+              </label>
+            </div>
           </div>
 
           <div className="slider-stack">
             <section className={modePanelClass("rgb")} aria-label="RGB sliders">
-              <h2>RGB</h2>
+              <ModeHeader
+                label="RGB"
+                mode="rgb"
+                selectedMode={mode}
+                disabled={!isReachable}
+                onSelectMode={chooseMode}
+              />
               {colourFields.map(([name, label]) => (
                 <SliderField
                   key={name}
@@ -298,7 +374,13 @@ export function SmartDeviceDashboard() {
             </section>
 
             <section className={modePanelClass("temperature")} aria-label="Temperature slider">
-              <h2>Temperature</h2>
+              <ModeHeader
+                label="Temperature"
+                mode="temperature"
+                selectedMode={mode}
+                disabled={!isReachable}
+                onSelectMode={chooseMode}
+              />
               <SliderField
                 label="Temperature"
                 max={100}
@@ -318,7 +400,13 @@ export function SmartDeviceDashboard() {
             </section>
 
             <section className={modePanelClass("transition")} aria-label="Transition slider">
-              <h2>Transition</h2>
+              <ModeHeader
+                label="Transition"
+                mode="transition"
+                selectedMode={mode}
+                disabled={!isReachable}
+                onSelectMode={chooseMode}
+              />
               <SliderField
                 label="Transition"
                 max={100}
@@ -327,23 +415,34 @@ export function SmartDeviceDashboard() {
                 disabled={!isReachable || mode !== "transition"}
                 onChange={(value) => updateValue("transition", value)}
               />
-              <SliderField
-                label="Brightness"
-                max={100}
-                unit="%"
-                value={values.brightness}
-                disabled={!isReachable || mode !== "transition"}
-                onChange={(value) => updateValue("brightness", value)}
-              />
             </section>
           </div>
-
-          <button className="custom-send" type="button" disabled={!isReachable} onClick={applyValues}>
-            Apply settings
-          </button>
         </section>
       </main>
     </div>
+  );
+}
+
+type ModeHeaderProps = {
+  label: string;
+  mode: ControlMode;
+  selectedMode: ControlMode;
+  disabled: boolean;
+  onSelectMode: (mode: ControlMode) => void;
+};
+
+function ModeHeader({ label, mode, selectedMode, disabled, onSelectMode }: ModeHeaderProps) {
+  return (
+    <label className="mode-header">
+      <input
+        type="radio"
+        name="control-mode"
+        checked={selectedMode === mode}
+        disabled={disabled}
+        onChange={() => onSelectMode(mode)}
+      />
+      <span>{label}</span>
+    </label>
   );
 }
 

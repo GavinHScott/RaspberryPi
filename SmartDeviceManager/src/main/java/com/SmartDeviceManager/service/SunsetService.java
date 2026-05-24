@@ -6,6 +6,7 @@ import java.time.Instant;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -47,6 +48,7 @@ public class SunsetService {
     private final ExecutorService pingExecutor;
     private final Map<String, Boolean> lastKnownOnline = new ConcurrentHashMap<>();
     private final Map<String, Instant> offlineSince = new ConcurrentHashMap<>();
+    private final Set<String> manuallyOverriddenTonight = ConcurrentHashMap.newKeySet();
     // private final Map<String, Boolean> observedOfflineCycle = new ConcurrentHashMap<>();
     private volatile boolean monitoringWindowOpen;
     private volatile boolean firstSchedulerRunLogged;
@@ -134,6 +136,12 @@ public class SunsetService {
     }
 
     private void runSunsetCheck(SmartDevice device) {
+        if (manuallyOverriddenTonight.contains(device.getRefName())) {
+            log.debug("Skipping sunset check for {} because it was manually overridden tonight.",
+                    device.getRefName());
+            return;
+        }
+
         Instant checkedAt = Instant.now(clock);
         boolean online = deviceHealthService.updateDeviceHealth(device, checkedAt);
 
@@ -194,7 +202,26 @@ public class SunsetService {
     private void clearState() {
         lastKnownOnline.clear();
         offlineSince.clear();
+        manuallyOverriddenTonight.clear();
         // observedOfflineCycle.clear();
+    }
+
+    public void recordManualCommand(SmartDevice device, String commandDescription) {
+        if (device == null || !device.isOfflineDetection() || !isDetectionWindowOpen()) {
+            return;
+        }
+
+        boolean added = manuallyOverriddenTonight.add(device.getRefName());
+        if (added) {
+            log.info("Manual command '{}' received for {} during sunset window. Nightly off checks are disabled for this device until midnight.",
+                    commandDescription, device.getRefName());
+            notifications.send("Nightly off overridden",
+                    device.getRefName() + " received manual command '" + commandDescription
+                            + "'. Nightly off checks are disabled for the rest of tonight.");
+        } else {
+            log.debug("Manual command '{}' received for {} during sunset window; nightly off was already overridden.",
+                    commandDescription, device.getRefName());
+        }
     }
 
     private String describeDevices(List<SmartDevice> devices) {

@@ -17,13 +17,16 @@ public class CommandParser {
     private final PayloadBuilder payloadBuilder;
     private final DeviceUdpClient udpClient;
     private final SunriseService sunriseService;
+    private final SunsetService sunsetService;
 
     public CommandParser(DeviceRegistry registry, PayloadBuilder payloadBuilder,
-                         DeviceUdpClient udpClient, SunriseService sunriseService) {
+                         DeviceUdpClient udpClient, SunriseService sunriseService,
+                         SunsetService sunsetService) {
         this.registry = registry;
         this.payloadBuilder = payloadBuilder;
         this.udpClient = udpClient;
         this.sunriseService = sunriseService;
+        this.sunsetService = sunsetService;
     }
 
     public void parseAndExecute(String input) throws Exception {
@@ -51,12 +54,14 @@ public class CommandParser {
         if (command.equals("sunrise")) {
             int minutes = Integer.parseInt(params.get(0));
             sunriseService.start(device.getRefName(), minutes);
+            sunsetService.recordManualCommand(device, command);
             return;
         }
 
         DeviceCommand cmd = new DeviceCommand(device.getRefName(), command, params);
         String json = payloadBuilder.build(cmd);
         udpClient.send(device.getRefName(), json);
+        sunsetService.recordManualCommand(device, command);
     }
 
     private void validateParams(String command, List<String> params) {

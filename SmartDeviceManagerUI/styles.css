@@ -37,9 +37,19 @@ input {
 }
 
 .app-shell {
-  width: min(1180px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: 240px minmax(0, 940px);
+  gap: 18px;
+  align-items: start;
+  width: min(1220px, calc(100vw - 32px));
   margin: 0 auto;
   padding: 28px 0;
+}
+
+.main-column {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
 }
 
 .topbar {
@@ -47,7 +57,6 @@ input {
   align-items: flex-end;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 24px;
 }
 
 .eyebrow {
@@ -95,14 +104,7 @@ h2 {
   color: var(--accent-2);
 }
 
-.simple-dashboard {
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 16px;
-  align-items: start;
-}
-
-.device-list,
+.device-sidebar,
 .dashboard-card,
 .boot-message {
   border: 1px solid var(--line);
@@ -111,14 +113,28 @@ h2 {
   padding: 14px;
 }
 
+.device-sidebar {
+  display: grid;
+  gap: 12px;
+}
+
 .device-list {
   display: grid;
   gap: 8px;
 }
 
-.device,
-.mode-tab,
-.custom-send {
+.sidebar-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sidebar-heading .eyebrow {
+  margin: 0;
+}
+
+.device {
   min-height: 44px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -137,8 +153,28 @@ h2 {
   padding: 0 12px;
 }
 
-.device.selected,
-.mode-tab.selected {
+.refresh-devices {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 10px;
+  background: var(--panel-2);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.refresh-devices:hover:not(:disabled) {
+  border-color: var(--accent-strong);
+}
+
+.refresh-devices:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.device.selected {
   border-color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
@@ -175,6 +211,18 @@ h2 {
 
 .offline-text {
   color: var(--danger);
+}
+
+.empty {
+  color: var(--muted);
+}
+
+.top-controls {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  align-items: center;
 }
 
 .power-switch {
@@ -215,25 +263,6 @@ h2 {
 .power-switch input:checked::before {
   transform: translateX(24px);
   background: var(--accent);
-}
-
-.mode-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.mode-tab {
-  font-weight: 800;
-}
-
-.mode-tab.inactive {
-  opacity: 0.48;
-  filter: grayscale(1);
-}
-
-.mode-tab.inactive:hover:not(:disabled) {
-  opacity: 0.7;
 }
 
 .field {
@@ -295,6 +324,15 @@ input:disabled {
   opacity: 0.45;
 }
 
+input[type="radio"] {
+  appearance: auto;
+  -webkit-appearance: auto;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
 input[type="number"] {
   min-height: 42px;
   width: 100%;
@@ -309,8 +347,7 @@ input[type="number"] {
   text-align: right;
 }
 
-.device.selected,
-.mode-tab.selected {
+.device.selected {
   border-color: var(--accent-strong);
 }
 
@@ -338,17 +375,19 @@ input[type="number"] {
   border-color: var(--accent-strong);
 }
 
-.custom-send {
-  justify-self: start;
-  min-width: 180px;
-  background: var(--accent);
-  color: #08111c;
+.mode-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  color: var(--text);
+  font-size: 1.15rem;
   font-weight: 800;
+  cursor: pointer;
 }
 
-.custom-send:hover:not(:disabled) {
-  border-color: var(--accent-strong);
-  background: var(--accent-strong);
+.mode-header:has(input:disabled) {
+  cursor: not-allowed;
 }
 
 .boot-message {
@@ -362,8 +401,8 @@ input[type="number"] {
 }
 
 @media (max-width: 860px) {
+  .app-shell,
   .topbar,
-  .simple-dashboard,
   .device-summary {
     display: grid;
     grid-template-columns: 1fr;
