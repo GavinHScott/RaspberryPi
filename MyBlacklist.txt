@@ -35,7 +35,6 @@ in.appcenter.ms
 o33249.ingest.sentry.io
 o33249.ingest.us.sentry.io
 http-intake.logs.datadoghq.com
-log.tailscale.com
 aefd.nelreports.net
 a.nel.cloudflare.com
 mobile.events.data.microsoft.com
