@@ -49,3 +49,4 @@ mobile.pipe.aria.microsoft.com
 settings-win.data.microsoft.com
 activity.windows.com
 default.exp-tas.com
+*.prod.service.minerva.devices.a2z.com

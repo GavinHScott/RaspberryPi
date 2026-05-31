@@ -1,15 +1,15 @@
 :root {
   color-scheme: only dark;
-  --bg: #101316;
-  --panel: #181d21;
-  --panel-2: #20272c;
-  --text: #edf2f4;
-  --muted: #9aa7ad;
-  --line: #323c43;
-  --accent: #58a6ff;
-  --accent-strong: #2f81f7;
-  --accent-2: #79c0ff;
-  --danger: #ff7f73;
+  --bg: var(--salt-color-gray-900, #101316);
+  --panel: var(--salt-color-gray-800, #181d21);
+  --panel-2: var(--salt-color-gray-700, #20272c);
+  --text: var(--salt-content-primary-foreground, #edf2f4);
+  --muted: var(--salt-content-secondary-foreground, #9aa7ad);
+  --line: var(--salt-separable-secondary-borderColor, #323c43);
+  --accent: var(--salt-palette-accent-foreground-informative, #58a6ff);
+  --accent-strong: var(--salt-palette-interact-border-active, #2f81f7);
+  --accent-2: var(--salt-palette-info-foreground-informative, #79c0ff);
+  --danger: var(--salt-palette-error-foreground-informative, #ff7f73);
 }
 
 html {
@@ -29,30 +29,38 @@ body {
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
-button,
-input {
-  appearance: none;
-  -webkit-appearance: none;
+button {
   font: inherit;
 }
 
 .app-shell {
   display: grid;
-  grid-template-columns: 240px minmax(0, 940px);
-  gap: 18px;
-  align-items: start;
+  gap: 16px;
   width: min(1220px, calc(100vw - 32px));
   margin: 0 auto;
-  padding: 28px 0;
+  padding: 24px 0;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 940px);
+  gap: 14px;
+  align-items: start;
+}
+
+.header-grid {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 940px);
+  gap: 14px;
 }
 
 .main-column {
   display: grid;
-  gap: 24px;
   min-width: 0;
 }
 
 .topbar {
+  grid-column: 2;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -141,6 +149,8 @@ h2 {
   background: var(--panel-2);
   color: var(--text);
   cursor: pointer;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .device {
@@ -163,6 +173,8 @@ h2 {
   cursor: pointer;
   font-size: 0.82rem;
   font-weight: 800;
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .refresh-devices:hover:not(:disabled) {
@@ -185,8 +197,9 @@ h2 {
 
 .dashboard-card {
   display: grid;
-  gap: 18px;
+  gap: 12px;
   min-width: 0;
+  padding: 12px;
 }
 
 .dashboard-card.unreachable {
@@ -196,12 +209,12 @@ h2 {
 .device-summary {
   display: flex;
   justify-content: space-between;
-  gap: 18px;
+  gap: 14px;
   align-items: center;
 }
 
 .device-summary h2 {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
   font-size: 1.35rem;
 }
 
@@ -221,130 +234,34 @@ h2 {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 12px;
+  gap: 8px;
   align-items: center;
 }
 
 .power-switch {
-  position: relative;
-  display: inline-grid;
-  grid-template-columns: 56px auto;
-  gap: 10px;
-  align-items: center;
   color: var(--text);
   font-weight: 800;
 }
 
-.power-switch input {
-  width: 56px;
-  height: 32px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #111619;
-  cursor: pointer;
-}
-
-.power-switch input::before {
-  content: "";
-  display: block;
-  width: 24px;
-  height: 24px;
-  margin: 3px;
-  border-radius: 999px;
-  background: var(--muted);
-  transition: transform 160ms ease, background 160ms ease;
-}
-
-.power-switch input:checked {
-  border-color: var(--accent);
-  background: #0d1b2a;
-}
-
-.power-switch input:checked::before {
-  transform: translateX(24px);
-  background: var(--accent);
+.power-switch .saltSwitch-label {
+  font-weight: 800;
 }
 
 .field {
   display: grid;
-  gap: 8px;
+  gap: 4px;
   color: var(--muted);
 }
 
 .input-row {
   display: grid;
-  grid-template-columns: 1fr 78px;
-  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 86px;
+  gap: var(--salt-spacing-100, 8px);
   align-items: center;
 }
 
-input[type="range"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 100%;
-  min-height: 34px;
-  background: transparent;
-}
-
-input[type="range"]::-webkit-slider-runnable-track {
-  height: 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #0d1b2a;
-}
-
-input[type="range"]::-webkit-slider-thumb {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 22px;
-  height: 22px;
-  margin-top: -7px;
-  border: 2px solid #cde7ff;
-  border-radius: 999px;
-  background: var(--accent);
-}
-
-input[type="range"]::-moz-range-track {
-  height: 10px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: #0d1b2a;
-}
-
-input[type="range"]::-moz-range-thumb {
-  width: 18px;
-  height: 18px;
-  border: 2px solid #cde7ff;
-  border-radius: 999px;
-  background: var(--accent);
-}
-
-input:disabled {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-input[type="radio"] {
-  appearance: auto;
-  -webkit-appearance: auto;
-  width: 18px;
-  height: 18px;
-  margin: 0;
-  accent-color: var(--accent);
-}
-
-input[type="number"] {
-  min-height: 42px;
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 0 10px;
-  background: #111619;
-  color: var(--text);
-}
-
 .number-entry {
-  text-align: right;
+  width: 100%;
 }
 
 .device.selected {
@@ -353,16 +270,16 @@ input[type="number"] {
 
 .slider-stack {
   display: grid;
-  gap: 14px;
+  gap: 8px;
 }
 
 .mode-panel {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel-2);
-  padding: 14px;
+  padding: 10px 12px;
   transition: opacity 160ms ease, filter 160ms ease;
 }
 
@@ -376,9 +293,6 @@ input[type="number"] {
 }
 
 .mode-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   width: fit-content;
   color: var(--text);
   font-size: 1.15rem;
@@ -386,7 +300,12 @@ input[type="number"] {
   cursor: pointer;
 }
 
-.mode-header:has(input:disabled) {
+.mode-header .saltRadioButton {
+  font-size: 1.15rem;
+  font-weight: 800;
+}
+
+.mode-header:has(.saltRadioButton-disabled) {
   cursor: not-allowed;
 }
 
@@ -402,10 +321,16 @@ input[type="number"] {
 
 @media (max-width: 860px) {
   .app-shell,
+  .header-grid,
+  .content-grid,
   .topbar,
   .device-summary {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    grid-column: 1;
   }
 
   .status {

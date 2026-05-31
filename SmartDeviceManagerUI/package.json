@@ -9,6 +9,8 @@
     "preview": "vite preview --host 0.0.0.0 --port 9091"
   },
   "dependencies": {
+    "@salt-ds/core": "^1.63.0",
+    "@salt-ds/theme": "^1.43.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

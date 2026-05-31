@@ -1,3 +1,5 @@
+import { Button } from "@salt-ds/core";
+
 type DeviceState = {
   name: string;
   online: boolean;
@@ -26,9 +28,16 @@ export function DeviceSidebar({
     <aside className="device-sidebar" aria-label="Available devices">
       <div className="sidebar-heading">
         <p className="eyebrow">Devices</p>
-        <button className="refresh-devices" type="button" disabled={refreshing} onClick={onRefreshDevices}>
+        <Button
+          className="refresh-devices"
+          type="button"
+          appearance="bordered"
+          sentiment="neutral"
+          disabled={refreshing}
+          onClick={onRefreshDevices}
+        >
           {refreshing ? "Refreshing" : "Refresh"}
-        </button>
+        </Button>
       </div>
       <div className="device-list">
         {devices.map((device) => {
@@ -36,9 +45,11 @@ export function DeviceSidebar({
           const reachable = liveState?.online;
 
           return (
-            <button
+            <Button
               type="button"
               key={device}
+              appearance="bordered"
+              sentiment={device === selectedDevice ? "accented" : "neutral"}
               className={device === selectedDevice ? "device selected" : "device"}
               onClick={() => onSelectDevice(device)}
             >
@@ -46,7 +57,7 @@ export function DeviceSidebar({
               <small className={reachable ? "online-text" : "offline-text"}>
                 {reachable ? "Online" : "Offline"}
               </small>
-            </button>
+            </Button>
           );
         })}
         {!loading && devices.length === 0 ? <p className="empty">No devices found</p> : null}

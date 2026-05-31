@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
+import { Switch } from "@salt-ds/core";
 import { DeviceSidebar } from "./DeviceSidebar";
+import { RgbSliderGroup } from "./deviceControls/RgbSliderGroup";
+import { TemperatureSliderGroup } from "./deviceControls/TemperatureSliderGroup";
+import { TransitionSliderGroup } from "./deviceControls/TransitionSliderGroup";
+import type { ControlMode, ControlValueName, ControlValues } from "./deviceControls/types";
 
 const API_PORT = 9090;
 const apiBase = `http://${window.location.hostname}:${API_PORT}`;
 const DEFAULT_DEVICE = "bedroomlight";
 
 type StatusTone = "idle" | "busy" | "success" | "error";
-type ControlMode = "rgb" | "temperature" | "transition";
-
 type DeviceInfo = {
   name: string;
   refName: string;
@@ -30,15 +33,6 @@ type Status = {
   text: string;
 };
 
-type ControlValues = {
-  brightness: string;
-  temperature: string;
-  red: string;
-  green: string;
-  blue: string;
-  transition: string;
-};
-
 const fallbackValues: ControlValues = {
   brightness: "50",
   temperature: "65",
@@ -47,12 +41,6 @@ const fallbackValues: ControlValues = {
   blue: "60",
   transition: "50",
 };
-
-const colourFields: Array<["red" | "green" | "blue", string]> = [
-  ["red", "Red"],
-  ["green", "Green"],
-  ["blue", "Blue"],
-];
 
 function kelvinToPercent(value: unknown) {
   if (typeof value !== "number") return "";
@@ -254,7 +242,7 @@ export function SmartDeviceDashboard() {
       });
   }
 
-  function updateValue(name: keyof ControlValues, value: string) {
+  function updateValue(name: ControlValueName, value: string) {
     const nextValues = { ...values, [name]: value };
     setValues(nextValues);
     if (!isHeld) {
@@ -296,30 +284,28 @@ export function SmartDeviceDashboard() {
     }
   }
 
-  function modePanelClass(panelMode: ControlMode) {
-    return panelMode === mode ? "mode-panel active" : "mode-panel disabled";
-  }
-
   return (
     <div className="app-shell">
-      <DeviceSidebar
-        devices={devices}
-        deviceStates={deviceStates}
-        selectedDevice={selectedDevice}
-        loading={loading}
-        refreshing={refreshingDevices}
-        onSelectDevice={chooseDevice}
-        onRefreshDevices={refreshDevices}
-      />
-
-      <main className="main-column">
+      <div className="header-grid">
         <header className="topbar">
           <div>
-            <p className="eyebrow">Port 9091</p>
             <h1>Smart Device Manager</h1>
           </div>
         </header>
+      </div>
 
+      <div className="content-grid">
+        <DeviceSidebar
+          devices={devices}
+          deviceStates={deviceStates}
+          selectedDevice={selectedDevice}
+          loading={loading}
+          refreshing={refreshingDevices}
+          onSelectDevice={chooseDevice}
+          onRefreshDevices={refreshDevices}
+        />
+
+        <main className="main-column">
         <section className={isReachable ? "dashboard-card" : "dashboard-card unreachable"}>
           <div className="device-summary">
             <div>
@@ -331,157 +317,49 @@ export function SmartDeviceDashboard() {
             </div>
 
             <div className="top-controls">
-              <label className="power-switch">
-                <input
-                  type="checkbox"
-                  checked={!isHeld}
-                  disabled={!isReachable}
-                  onChange={(event) => setUpdateMode(event.target.checked)}
-                />
-                <span>{isHeld ? "Hold" : "Update"}</span>
-              </label>
-              <label className="power-switch">
-                <input
-                  type="checkbox"
-                  checked={powerOn}
-                  disabled={!isReachable}
-                  onChange={(event) => sendPower(event.target.checked)}
-                />
-                <span>{powerOn ? "On" : "Off"}</span>
-              </label>
+              <Switch
+                className="power-switch"
+                checked={!isHeld}
+                disabled={!isReachable}
+                label={isHeld ? "Hold" : "Update"}
+                onChange={(event) => setUpdateMode(event.target.checked)}
+              />
+              <Switch
+                className="power-switch"
+                checked={powerOn}
+                disabled={!isReachable}
+                label={powerOn ? "On" : "Off"}
+                onChange={(event) => sendPower(event.target.checked)}
+              />
             </div>
           </div>
 
           <div className="slider-stack">
-            <section className={modePanelClass("rgb")} aria-label="RGB sliders">
-              <ModeHeader
-                label="RGB"
-                mode="rgb"
-                selectedMode={mode}
-                disabled={!isReachable}
-                onSelectMode={chooseMode}
-              />
-              {colourFields.map(([name, label]) => (
-                <SliderField
-                  key={name}
-                  label={label}
-                  max={255}
-                  value={values[name]}
-                  disabled={!isReachable || mode !== "rgb"}
-                  onChange={(value) => updateValue(name, value)}
-                />
-              ))}
-            </section>
-
-            <section className={modePanelClass("temperature")} aria-label="Temperature slider">
-              <ModeHeader
-                label="Temperature"
-                mode="temperature"
-                selectedMode={mode}
-                disabled={!isReachable}
-                onSelectMode={chooseMode}
-              />
-              <SliderField
-                label="Temperature"
-                max={100}
-                unit="%"
-                value={values.temperature}
-                disabled={!isReachable || mode !== "temperature"}
-                onChange={(value) => updateValue("temperature", value)}
-              />
-              <SliderField
-                label="Brightness"
-                max={100}
-                unit="%"
-                value={values.brightness}
-                disabled={!isReachable || mode !== "temperature"}
-                onChange={(value) => updateValue("brightness", value)}
-              />
-            </section>
-
-            <section className={modePanelClass("transition")} aria-label="Transition slider">
-              <ModeHeader
-                label="Transition"
-                mode="transition"
-                selectedMode={mode}
-                disabled={!isReachable}
-                onSelectMode={chooseMode}
-              />
-              <SliderField
-                label="Transition"
-                max={100}
-                unit="%"
-                value={values.transition}
-                disabled={!isReachable || mode !== "transition"}
-                onChange={(value) => updateValue("transition", value)}
-              />
-            </section>
+            <RgbSliderGroup
+              selectedMode={mode}
+              values={values}
+              disabled={!isReachable}
+              onSelectMode={chooseMode}
+              onChangeValue={updateValue}
+            />
+            <TemperatureSliderGroup
+              selectedMode={mode}
+              values={values}
+              disabled={!isReachable}
+              onSelectMode={chooseMode}
+              onChangeValue={updateValue}
+            />
+            <TransitionSliderGroup
+              selectedMode={mode}
+              values={values}
+              disabled={!isReachable}
+              onSelectMode={chooseMode}
+              onChangeValue={updateValue}
+            />
           </div>
         </section>
-      </main>
-    </div>
-  );
-}
-
-type ModeHeaderProps = {
-  label: string;
-  mode: ControlMode;
-  selectedMode: ControlMode;
-  disabled: boolean;
-  onSelectMode: (mode: ControlMode) => void;
-};
-
-function ModeHeader({ label, mode, selectedMode, disabled, onSelectMode }: ModeHeaderProps) {
-  return (
-    <label className="mode-header">
-      <input
-        type="radio"
-        name="control-mode"
-        checked={selectedMode === mode}
-        disabled={disabled}
-        onChange={() => onSelectMode(mode)}
-      />
-      <span>{label}</span>
-    </label>
-  );
-}
-
-type SliderFieldProps = {
-  label: string;
-  min?: number;
-  max: number;
-  unit?: string;
-  value: string;
-  disabled: boolean;
-  onChange: (value: string) => void;
-};
-
-function SliderField({ label, min = 0, max, unit, value, disabled, onChange }: SliderFieldProps) {
-  return (
-    <label className="field">
-      <span>
-        {label}
-        {unit ? ` (${unit})` : ""}
-      </span>
-      <div className="input-row">
-        <input
-          type="range"
-          min={min}
-          max={max}
-          value={value}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.value)}
-        />
-        <input
-          className="number-entry"
-          type="number"
-          min={min}
-          max={max}
-          value={value}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.value)}
-        />
+        </main>
       </div>
-    </label>
+    </div>
   );
 }
