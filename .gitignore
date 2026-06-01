@@ -1,12 +1,28 @@
 **/target/
+*.class
+*.jar
+*.war
+*.nar
+*.ear
+dependency-reduced-pom.xml
+hs_err_pid*
+replay_pid*
 
 # Node/Vite dependencies and build output
 **/node_modules/
 **/dist/
+**/build/
 **/.vite/
+**/.parcel-cache/
+**/.next/
+**/.nuxt/
 **/.cache/
 **/coverage/
 **/*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
 # Runtime logs
 **/logs/
@@ -15,3 +31,9 @@
 # OS/editor noise
 .DS_Store
 Thumbs.db
+
+# Local editor/project metadata
+.idea/
+.vscode/
+*.swp
+*.swo
