@@ -1,0 +1,16 @@
+com\DataHub\auth\DataHubAuthService.class
+com\DataHub\resolver\DataHubQueryRequest.class
+com\DataHub\controller\DataHubController.class
+com\DataHub\auth\DataHubKeyRegistry.class
+com\DataHub\auth\SignedDataHubRequest.class
+com\DataHub\auth\DataHubRequestSignature.class
+com\DataHub\auth\YubiKeyProvisioningService.class
+com\DataHub\resolver\DataHubWriteRequest.class
+com\DataHub\DataHubApplication.class
+com\DataHub\resolver\DataHubQueryResponse.class
+com\DataHub\auth\DataHubPairingResponse.class
+com\DataHub\auth\DataHubPairingRequest.class
+com\DataHub\auth\DataHubClient.class
+com\DataHub\resolver\DataHubResolver.class
+com\DataHub\auth\DataHubPermission.class
+com\DataHub\resolver\DataHubWriteResponse.class

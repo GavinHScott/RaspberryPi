@@ -1,0 +1,16 @@
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\controller\CommandRequest.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\controller\CustomCommandRequest.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\controller\DeviceController.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\model\DeviceCommand.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\model\SmartDevice.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\network\DeviceUdpClient.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\payload\PayloadBuilder.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\registry\DeviceRegistry.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\service\ApplicationStartupNotificationService.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\service\CommandParser.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\service\DeviceHealthService.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\service\NtfyNotificationService.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\service\ScheduledTasks.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\service\SunriseService.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\service\SunsetService.java
+C:\Repos\RaspberryPi\SmartDeviceManager\SmartDeviceManagerBE\src\main\java\com\SmartDeviceManager\SmartDeviceManager.java
