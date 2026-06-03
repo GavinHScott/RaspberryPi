@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.SmartDeviceManager.network.DeviceUdpClientTest
 -------------------------------------------------------------------------------
-Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.073 s -- in com.SmartDeviceManager.network.DeviceUdpClientTest
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 2.182 s -- in com.SmartDeviceManager.network.DeviceUdpClientTest
