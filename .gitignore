@@ -1,4 +1,5 @@
 **/target/
+**/target/**
 *.class
 *.jar
 *.war
@@ -37,4 +38,3 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
-DataHub/target/classes/com/DataHub/DataHubApplication.class
