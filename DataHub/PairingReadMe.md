@@ -14,7 +14,7 @@ Use this flow when a new device needs access to DataHub.
 
    ```properties
    datahub.auth.yubikey.enabled=true
-   datahub.auth.yubikey.accepted-proof=CHANGE_ME_TO_A_REAL_PAIRING_PROOF
+   datahub.auth.yubikey.accepted-proof=CHANGE_ME_YUBIKEY_PAIRING_PROOF
    ```
 
    The `accepted-proof` value is the current lightweight stand-in for real YubiKey verification. Replace this later with OTP, WebAuthn/FIDO2, or PIV verification.
@@ -50,7 +50,7 @@ Use this flow when a new device needs access to DataHub.
      "keyId": "kitchenpi-main",
      "publicKey": "BASE64_X509_ED25519_PUBLIC_KEY",
      "permissions": ["READ", "WRITE"],
-     "yubiKeyProof": "CHANGE_ME_TO_A_REAL_PAIRING_PROOF"
+     "yubiKeyProof": "CHANGE_ME_YUBIKEY_PAIRING_PROOF"
    }
    ```
 
@@ -60,6 +60,12 @@ Use this flow when a new device needs access to DataHub.
 
    ```text
    keyId -> client name -> public key -> permissions
+   ```
+
+   DataHub persists that authorization to:
+
+   ```text
+   /home/gavinsco/apps/DataHub/data/authorized-clients.txt
    ```
 
    DataHub does not receive the private key.
@@ -72,7 +78,7 @@ Use this flow when a new device needs access to DataHub.
 
 ## Querying After Pairing
 
-After pairing, the device signs every request with its private key.
+After pairing, the device signs every request with its private key. The YubiKey is not required for normal DataHub requests after the client has been authorized. Only new client authorization through `/pair` requires the YubiKey proof gate.
 
 Required headers:
 
