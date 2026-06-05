@@ -1,149 +1,101 @@
 # Security
 
-This Raspberry Pi is a high-trust device on the local network. If an attacker gets an SSH session on the Pi, they should be treated as having a serious path into the rest of the network.
+This Raspberry Pi is a high-trust local-network device. Requests to the Pi should be honored only when they come from the local LAN or the Pi's Tailscale VPN network. Internet-origin traffic should not be accepted directly.
 
-The Pi can see local services, trusted device traffic, application source, service configuration, logs, and any credentials or private keys stored on disk. For that reason, SSH access to the Pi and inbound access to DataHub are the two main security boundaries.
+Network location is only the first gate. Local/VPN clients still need the correct application-level authorization.
 
-## Current Pi SSH State
+## Core Model
 
-As of 2026-06-04, the effective SSH configuration allows password authentication:
+- SSH/admin access is YubiKey-gated.
+- YubiKey-backed SSH/admin authorization lasts for 24 hours, then must be renewed.
+- DataHub is the central authorization service for exposed application services.
+- DataHub stores authorized client public keys.
+- Each client keeps its own private key.
+- Client keys can only be created/onboarded through a YubiKey-backed process.
+- Normal DataHub access uses signed requests from authorized clients.
+- Dashboard is the external-facing view-only UI.
+- DataHub is the only external read/write application.
 
-```text
-PasswordAuthentication yes
-PubkeyAuthentication yes
-KbdInteractiveAuthentication no
-UsePAM yes
-AuthenticationMethods any
-```
+## Network Boundary
 
-There is currently no `/home/gavinsco/.ssh/authorized_keys` file. That means the Pi is not yet ready to safely enforce SSH public-key-only login, because doing so before installing a working key would lock out the account.
+The Pi should only honor requests from:
 
-The `gavinsco` user is in the `sudo` group and currently has passwordless sudo:
+- the local LAN
+- the Tailscale VPN network that includes the Pi
+- localhost for internal service-to-service calls
 
-```text
-(ALL : ALL) ALL
-(ALL) NOPASSWD: ALL
-```
+Requests from outside those networks should be dropped before they reach application logic.
 
-That means the current security boundary is mostly the SSH login itself. The desired target is stronger: every SSH path, including direct root SSH, must be YubiKey-gated. For non-root sessions, sudo/root actions should still require the `gavinsco` account password inside the session.
+This applies to:
 
-## Required SSH Direction
+- SSH
+- DataHub
+- Dashboard
+- Pi-hole admin surfaces
+- SmartDeviceManager if it is ever exposed directly
+- future HTTP/API services
 
-The desired SSH posture is:
+DNS service exposure may be different from admin/API exposure, but it still needs an explicit network rule.
 
-- every new SSH session must require a YubiKey-backed SSH credential
-- `gavinsco` SSH login must be allowed with YubiKey protection
-- direct root SSH may be allowed, but only with YubiKey protection
-- password SSH login must be disabled
-- keyboard-interactive SSH may be enabled only when it is YubiKey-backed and cannot fall back to a plain password
-- root-level administration happens through `gavinsco` and password-required sudo after login
-- passwordless sudo must be removed
-- the current SSH session must remain open while testing a new login
+## SSH Admin Access
 
-For remote SSH, the preferred YubiKey model is a client-side OpenSSH FIDO/security-key credential. The YubiKey is plugged into the device initiating SSH, not into the Pi.
+All interactive administration should happen through SSH.
 
-Accepted public key types should start with one of:
+Target SSH posture:
 
-```text
-sk-ssh-ed25519@openssh.com
-sk-ecdsa-sha2-nistp256@openssh.com
-```
+- SSH is reachable only from LAN/VPN.
+- every SSH session requires a YubiKey-backed credential.
+- password-only SSH is not allowed.
+- keyboard-interactive SSH is allowed only if it is YubiKey-backed and cannot fall back to a plain password.
+- any successful SSH session is admin/root-capable by design.
+- sudo should require the `gavinsco` account password after login.
+- YubiKey-backed SSH/admin authorization expires after 24 hours.
 
-The planned target SSH settings for FIDO public-key-only SSH are:
-
-```text
-PubkeyAuthentication yes
-PasswordAuthentication no
-KbdInteractiveAuthentication no
-AuthenticationMethods publickey
-PermitRootLogin prohibit-password
-```
-
-If keyboard-interactive SSH is enabled, it must be configured as a YubiKey-backed PAM challenge or an additional factor after a YubiKey-backed public key, never as an alternative password path. In that mode, the intended shape is:
+The practical way to implement the 24-hour expiry is to use short-lived SSH certificates:
 
 ```text
-PubkeyAuthentication yes
-PasswordAuthentication no
-KbdInteractiveAuthentication yes
-AuthenticationMethods publickey,keyboard-interactive
-PermitRootLogin yes
+YubiKey proof -> issue SSH user certificate -> certificate valid for 24h -> SSH accepts certificate -> certificate expires
 ```
 
-In either mode, both `/home/gavinsco/.ssh/authorized_keys` and root's authorized keys must contain only approved YubiKey/FIDO-backed `sk-*` public keys for interactive admin access. Direct root SSH should not accept ordinary `ssh-ed25519`, RSA, ECDSA, password, or password-only keyboard-interactive login.
+The long-lived SSH private key should remain protected by the YubiKey. The short-lived certificate should be useless after 24 hours.
 
-The planned target sudo posture is:
+Safe rollout rules:
 
-```text
-gavinsco ALL=(ALL:ALL) ALL
-```
+1. Add and test the YubiKey-backed SSH credential.
+2. Add and test the 24-hour SSH certificate flow.
+3. Keep the current SSH session open while testing a second login.
+4. Confirm the intended admin/root workflow works from the YubiKey-backed session.
+5. Disable password-only SSH only after the YubiKey flow works.
+6. Validate SSH config with `sshd -t` before reloading SSH.
 
-There should be no broad `NOPASSWD: ALL` rule for `gavinsco`. Any narrow `NOPASSWD` exception should be explicit, justified, and documented before being kept.
+## DataHub Authorization
 
-Do not apply those SSH settings until `/home/gavinsco/.ssh/authorized_keys` and, if direct root SSH is required, root's authorized keys contain tested YubiKey/FIDO-backed `sk-*` public keys.
+DataHub is the central whitelist and authorization service for clients that interact with exposed services on the Pi.
 
-The rollout order is:
+DataHub should maintain:
 
-1. Create a YubiKey-backed SSH key on the client machine.
-2. Add the generated public key to `/home/gavinsco/.ssh/authorized_keys`.
-3. If direct root SSH is required, add the same approved public key to root's authorized keys.
-4. Keep the current SSH session open.
-5. Test a second SSH login as `gavinsco` and confirm it requires the YubiKey.
-6. If direct root SSH is required, test a separate root SSH login and confirm it requires the YubiKey.
-7. Only after those tests succeed, disable password SSH login.
-8. If keyboard-interactive is enabled, confirm it is YubiKey-backed and not password-only.
-9. Remove broad passwordless sudo for `gavinsco` so sudo asks for the account password.
-10. Reload SSH only after `sshd -t` validates the config.
-11. Confirm fresh YubiKey-backed SSH logins still work before closing the original session.
-12. Confirm `sudo -v` asks for the `gavinsco` password and then grants root-capable administration.
+- client name
+- key ID
+- public key
+- allowed services
+- permissions
+- created time
+- revoked status
+- optional expiry or rotation metadata
 
-## Creating The YubiKey SSH Key
+Client onboarding:
 
-Create the key on the client machine used to SSH into the Pi. The private key must remain on that client machine.
+1. A new client requests authorization from inside the LAN/VPN boundary.
+2. The client key pair is created through a YubiKey-backed process.
+3. The client keeps the private key.
+4. DataHub receives the public key, key ID, client name, requested services, and requested permissions.
+5. DataHub only adds the client to the whitelist if the onboarding request has valid YubiKey proof.
+6. The YubiKey proof for onboarding is valid for at most 24 hours.
+7. DataHub stores the authorized public key and policy.
 
-Recommended OpenSSH key type:
+After onboarding, the client does not need a YubiKey for every DataHub request. It signs requests with its private key. DataHub verifies the signature against the stored public key and enforces the client policy.
 
-```text
-ssh-keygen -t ed25519-sk -O resident -O verify-required -C "gavinpione-yubikey" -f ~/.ssh/gavinpione_yubikey
-```
-
-Copy the generated `.pub` file into:
-
-```text
-/home/gavinsco/.ssh/authorized_keys
-```
-
-If direct root SSH is required, also copy the same approved public key into root's authorized keys.
-
-The public key line should begin with:
-
-```text
-sk-ssh-ed25519@openssh.com
-```
-
-## DataHub Role
-
-DataHub is intended to become the controlled data access layer for applications and trusted devices.
-
-Current module:
-
-```text
-/home/gavinsco/apps/DataHub
-```
-
-Current service port:
-
-```text
-9093
-```
-
-Current DataHub endpoints:
-
-- `GET /health`
-- `POST /pair`
-- `POST /resolve`
-- `POST /write`
-
-`/resolve` and `/write` require Ed25519 request signatures using:
+Normal DataHub requests must include:
 
 ```http
 X-DataHub-Key-Id
@@ -151,107 +103,69 @@ X-DataHub-Timestamp
 X-DataHub-Signature
 ```
 
-The timestamp must be within 5 minutes of the server clock. Trusted client keys are configured with:
+DataHub must:
 
-```properties
-datahub.auth.clients=appName:keyId:base64X509Ed25519PublicKey:READ|WRITE
-datahub.auth.clients-file=/home/gavinsco/apps/DataHub/data/authorized-clients.txt
-```
+- reject requests from outside LAN/VPN
+- reject unknown key IDs
+- reject revoked clients
+- reject stale timestamps
+- verify the request signature against the whitelisted public key
+- enforce allowed services
+- enforce `READ` or `WRITE` permissions
+- reject requests whose SQL or command shape is not allowed
 
-DataHub has a different YubiKey model from SSH. SSH requires the YubiKey every time a session starts. DataHub requires a YubiKey only when authorizing a new client through `/pair`. Once the client is authorized, that client can interact with DataHub indefinitely using its own Ed25519 key pair, subject to signature, timestamp, and permission checks.
+## Exposed Services
 
-Current permission model:
+Dashboard is the external-facing UI.
 
-- `READ`: can call `/resolve`
-- `WRITE`: can call both `/resolve` and `/write`
+Dashboard target posture:
 
-## DataHub Access Protocol
+- view/get only
+- no write commands
+- no direct device-control mutations
+- no whitelist administration
+- only served to LAN/VPN clients
+- reads should come from DataHub or another read-only source of truth
 
-Incoming DataHub connections should be treated as untrusted until all checks pass.
+DataHub is the only external read/write application.
 
-Required protocol:
+DataHub target posture:
 
-1. Authorize new clients through `/pair` only when the YubiKey proof gate passes.
-2. Persist the authorized client's public key and permissions.
-3. Identify normal callers by `X-DataHub-Key-Id`.
-4. Reject unknown key IDs.
-5. Reject missing or stale timestamps.
-6. Reconstruct the canonical payload server-side.
-7. Verify the Ed25519 signature against the registered public key.
-8. Enforce `READ` or `WRITE` permission.
-9. Validate query shape before touching the database.
-10. Use named parameters for all SQL values.
+- owns the public key repository for authorized clients
+- verifies client signatures for read/write requests
+- enforces allowed services and permissions
+- rejects non-LAN/non-VPN clients
+- is the only external path for write-capable operations
+- requires YubiKey-backed onboarding before adding a new client public key
 
-Current read rules:
+SmartDeviceManager should not be exposed as an external write surface. If Dashboard needs SmartDeviceManager state, it should view that state through Dashboard/DataHub read paths, not by exposing SmartDeviceManager command endpoints directly.
 
-- allows single `SELECT` statements
-- allows single `WITH` statements
-- blocks multi-statement SQL containing `;`
-- blocks mutating words in read mode
+Pi-hole admin surfaces should not be external write surfaces. DNS service exposure may be allowed according to local network needs, but Pi-hole administration should remain LAN/VPN-restricted and separately reviewed.
 
-Current write rules:
+## YubiKey Required
 
-- allows single `INSERT`, `UPDATE`, `DELETE`, or `REPLACE` statements
-- blocks multi-statement SQL containing `;`
+A YubiKey should be required for:
 
-## DataHub Current Risks
+- starting or renewing SSH/admin access
+- issuing a 24-hour SSH/admin credential
+- creating/onboarding DataHub client key pairs
+- adding clients to the DataHub whitelist
+- removing, rotating, or revoking DataHub clients
+- changing systemd services, scripts, app configs, and DataHub policy files
 
-DataHub is wired and tested, but not production-complete.
+A YubiKey is not required for:
 
-Known risks:
+- normal authorized DataHub requests after onboarding
+- normal requests from a whitelisted client to an approved service
+- DNS queries, unless DNS is separately restricted
+- Dashboard view-only requests from LAN/VPN clients
 
-- MySQL database credentials are placeholders
-- trusted client public keys are placeholders
-- durable storage location is still a TODO
-- `/pair` uses a placeholder proof comparison rather than real YubiKey verification
-- paired keys are persisted, so the authorized-clients file must be protected as security-sensitive configuration
-- DataHub is not currently installed as a systemd service
-- LAN and VPN exposure of port `9093` makes DataHub a direct attack surface unless request signing, key management, and database permissions are hardened
+## Open Design Questions
 
-Until these are fixed, DataHub should only be reachable on the minimum LAN/VPN paths needed, and network location must not be treated as authentication.
-
-## Pi Compromise Impact
-
-If someone manages to SSH into the Pi, assume they may be able to:
-
-- read application source and local configuration
-- inspect logs and scheduled scripts
-- tamper with SmartDeviceManager behaviour
-- alter DataHub access controls
-- use direct root SSH if root's YubiKey-backed key or client device is compromised
-- attempt sudo escalation from `gavinsco`; the target posture requires the `gavinsco` password for root-level control
-- pivot to local network services
-- access local DNS/Pi-hole behaviour
-- capture or misuse credentials stored on disk
-
-This makes YubiKey-protected SSH the first control, not a nice-to-have. Direct root SSH is acceptable only when it is YubiKey-gated. Sudo from `gavinsco` should require the `gavinsco` password so non-root sessions still have a second gate before root actions.
-
-## Recommended Next Controls
-
-Immediate controls:
-
-- install a YubiKey-backed SSH public key for `gavinsco`
-- install a YubiKey-backed SSH public key for root if direct root SSH is required
-- verify a second SSH login succeeds with the YubiKey before closing the current session
-- verify direct root SSH requires the YubiKey if it is enabled
-- then disable password SSH login
-- only enable keyboard-interactive SSH when it is YubiKey-backed and cannot fall back to a plain password
-- remove broad passwordless sudo so root actions require the `gavinsco` password
-- keep SSH reachable only through Tailscale/VPN where possible
-
-DataHub controls:
-
-- replace placeholder DataHub client keys
-- replace placeholder MySQL credentials
-- replace placeholder YubiKey proof comparison with real OTP, WebAuthn/FIDO2, or PIV verification
-- protect `/home/gavinsco/apps/DataHub/data/authorized-clients.txt` as a sensitive authorization registry
-- add a DataHub systemd service only after credentials and network binding are decided
-- bind DataHub to the narrowest viable interface
-- log rejected auth attempts without logging secrets or raw signatures
-
-Operational controls:
-
-- keep `/home/gavinsco/scripts` free of logs and runtime clutter
-- keep script logs in `/home/gavinsco/ScriptLogs`
-- review systemd units before enabling new services
-- treat any unexpected SSH login as a network security incident
+- Whether the DataHub client private key should live directly on a YubiKey or be generated by a YubiKey-approved onboarding flow.
+- Whether DataHub client authorizations should be indefinite until revoked or require periodic renewal.
+- Which component issues the 24-hour SSH certificate after YubiKey proof.
+- Where DataHub stores the whitelist and how file permissions/backups are handled.
+- How Dashboard obtains read-only data without gaining write capability.
+- How DataHub routes or brokers write-capable operations to internal services.
+- How revoked keys are distributed and enforced immediately.
