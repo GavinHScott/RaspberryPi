@@ -11,7 +11,8 @@ Network location is only the first gate. Local/VPN clients still need the correc
 - DataHub is the central authorization service for exposed application services.
 - DataHub stores authorized client public keys.
 - Each client keeps its own private key.
-- Client keys can only be created/onboarded through a YubiKey-backed process.
+- Every new key pair must be created through a YubiKey physical-presence-backed event.
+- Client keys can only be authorized through a YubiKey-backed admin process.
 - Normal DataHub access uses signed requests from authorized clients.
 - Dashboard is the external-facing view-only UI.
 - DataHub is the only external read/write application.
@@ -51,13 +52,15 @@ Target SSH posture:
 - sudo should require the `gavinsco` account password after login.
 - YubiKey-backed SSH/admin authorization expires after 24 hours.
 
-The practical way to implement the 24-hour expiry is to use short-lived SSH certificates:
+The 24-hour window means the YubiKey proves human presence on the SSH client, then that proof is exchanged for a short-lived SSH certificate:
 
 ```text
 YubiKey proof -> issue SSH user certificate -> certificate valid for 24h -> SSH accepts certificate -> certificate expires
 ```
 
 The long-lived SSH private key should remain protected by the YubiKey. The short-lived certificate should be useless after 24 hours.
+
+A valid YubiKey-backed SSH admin session is the authority for Pi administration, including root-capable work, service changes, and whitelist changes.
 
 Safe rollout rules:
 
@@ -86,11 +89,11 @@ DataHub should maintain:
 Client onboarding:
 
 1. A new client requests authorization from inside the LAN/VPN boundary.
-2. The client key pair is created through a YubiKey-backed process.
-3. The client keeps the private key.
-4. DataHub receives the public key, key ID, client name, requested services, and requested permissions.
-5. DataHub only adds the client to the whitelist if the onboarding request has valid YubiKey proof.
-6. The YubiKey proof for onboarding is valid for at most 24 hours.
+2. The client creates its key pair through a YubiKey physical-presence-backed event.
+3. The client provides DataHub with its public key, key ID, name, requested services, and requested permissions.
+4. DataHub does not add the client to the whitelist automatically.
+5. A Pi admin approves the request from a valid YubiKey-backed SSH session.
+6. The admin's YubiKey-backed SSH/admin proof is valid for at most 24 hours.
 7. DataHub stores the authorized public key and policy.
 
 After onboarding, the client does not need a YubiKey for every DataHub request. It signs requests with its private key. DataHub verifies the signature against the stored public key and enforces the client policy.
@@ -127,6 +130,18 @@ Dashboard target posture:
 - only served to LAN/VPN clients
 - reads should come from DataHub or another read-only source of truth
 
+Dashboard client authentication flow:
+
+1. A browser requests Dashboard from the LAN/VPN boundary.
+2. Dashboard asks DataHub whether that browser/client identity is whitelisted.
+3. DataHub checks its public key repository.
+4. If the client is known, DataHub creates a one-time challenge.
+5. Dashboard serves the challenge to the browser/client.
+6. The browser/client signs the challenge with its private key.
+7. Dashboard returns the signed challenge to DataHub.
+8. DataHub verifies the signature against the stored public key.
+9. Dashboard grants view-only access only after DataHub confirms the proof.
+
 DataHub is the only external read/write application.
 
 DataHub target posture:
@@ -136,7 +151,7 @@ DataHub target posture:
 - enforces allowed services and permissions
 - rejects non-LAN/non-VPN clients
 - is the only external path for write-capable operations
-- requires YubiKey-backed onboarding before adding a new client public key
+- requires YubiKey-backed admin approval before adding a new client public key
 
 SmartDeviceManager should not be exposed as an external write surface. If Dashboard needs SmartDeviceManager state, it should view that state through Dashboard/DataHub read paths, not by exposing SmartDeviceManager command endpoints directly.
 
@@ -148,7 +163,8 @@ A YubiKey should be required for:
 
 - starting or renewing SSH/admin access
 - issuing a 24-hour SSH/admin credential
-- creating/onboarding DataHub client key pairs
+- creating any new SSH, DataHub client, Dashboard client, or service-client key pair
+- approving DataHub client onboarding requests
 - adding clients to the DataHub whitelist
 - removing, rotating, or revoking DataHub clients
 - changing systemd services, scripts, app configs, and DataHub policy files
@@ -157,15 +173,16 @@ A YubiKey is not required for:
 
 - normal authorized DataHub requests after onboarding
 - normal requests from a whitelisted client to an approved service
+- signing a Dashboard challenge from an already-whitelisted browser/client
 - DNS queries, unless DNS is separately restricted
 - Dashboard view-only requests from LAN/VPN clients
 
 ## Open Design Questions
 
-- Whether the DataHub client private key should live directly on a YubiKey or be generated by a YubiKey-approved onboarding flow.
 - Whether DataHub client authorizations should be indefinite until revoked or require periodic renewal.
 - Which component issues the 24-hour SSH certificate after YubiKey proof.
 - Where DataHub stores the whitelist and how file permissions/backups are handled.
+- How browser/client private keys are stored safely for Dashboard challenge signing after their YubiKey-backed creation.
 - How Dashboard obtains read-only data without gaining write capability.
 - How DataHub routes or brokers write-capable operations to internal services.
 - How revoked keys are distributed and enforced immediately.
