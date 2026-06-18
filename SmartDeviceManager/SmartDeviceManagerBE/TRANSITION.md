@@ -1,0 +1,3 @@
+# Transition
+
+The `transition` setting is a calibrated sunrise ramp, not a generic fade duration or independent brightness control: values `0-10` use the bulb's lowest usable white-channel/RGB-side output with dimming, then values above the manually discovered crossover point switch to temperature mode and continue ramping color temperature and dimming together up to full bright white. This exists so sunrise automation can move smoothly from the bulb's lowest possible visible setting to its highest without the user seeing an abrupt mode switch between RGB/white-channel control and temperature control.
